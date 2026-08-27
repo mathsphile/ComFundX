@@ -146,7 +146,7 @@ Our platform uses Soroban to meter tokenized execution per prompt, settling XLM 
       fundingGoal: 50000,
       raisedAmount: 39800,
       deadline: in15Days,
-      coverImage: "https://images.unsplash.com/photo-1677442136019-21780efad99a?w=1200&auto=format&fit=crop&q=80",
+      coverImage: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80",
       gallery: JSON.stringify([
         "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&auto=format&fit=crop&q=80"
       ]),

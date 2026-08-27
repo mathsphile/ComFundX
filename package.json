@@ -9,11 +9,12 @@
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "contract:build": "cd contracts/crowdfund && cargo build --target wasm32-unknown-unknown --release",
+    "contract:build": "cd contracts/crowdfund && stellar contract build --optimize",
     "contract:test": "cd contracts/crowdfund && cargo test"
   },
   "dependencies": {
     "@prisma/client": "^6.3.0",
+    "@react-three/fiber": "^9.7.0",
     "@stellar/freighter-api": "^6.0.1",
     "@stellar/stellar-sdk": "^16.1.0",
     "@tanstack/react-query": "^5.66.0",
@@ -21,12 +22,14 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.4.0",
     "jose": "^5.9.6",
+    "lenis": "^1.3.26",
     "lucide-react": "^0.475.0",
     "next": "^15.1.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.0.1",
+    "three": "^0.185.1",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
@@ -35,6 +38,7 @@
     "@types/node": "^22.13.4",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "@types/three": "^0.185.4",
     "postcss": "^8.5.2",
     "prisma": "^6.3.0",
     "tailwindcss": "^4.0.7",

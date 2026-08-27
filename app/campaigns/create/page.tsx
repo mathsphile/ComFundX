@@ -3,16 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import {
-  Rocket,
-  CheckCircle2,
-  ArrowRight,
-  ArrowLeft,
-  ShieldCheck,
-  Upload,
-} from "lucide-react";
+import { Rocket, Check, ArrowRight, ArrowLeft, ShieldCheck, Upload } from "lucide-react";
 import { useWalletStore } from "@/lib/store/walletStore";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Field, Input, Textarea } from "@/components/ui/field";
+import { Container } from "@/components/ui/container";
+import { cn } from "@/lib/utils";
+
+const CATEGORIES = ["Technology", "AI", "Web3", "Education", "Gaming", "Open Source"];
+const STEP_LABELS = ["Basic Details", "Goal & Timing", "Story & Media", "Publish"];
 
 export default function CreateCampaignPage() {
   const router = useRouter();
@@ -20,7 +20,6 @@ export default function CreateCampaignPage() {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form State
   const [formData, setFormData] = useState({
     title: "",
     shortDescription: "",
@@ -28,7 +27,8 @@ export default function CreateCampaignPage() {
     category: "Technology",
     fundingGoal: "10000",
     deadlineDays: "30",
-    coverImage: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=1200&auto=format&fit=crop&q=80",
+    coverImage:
+      "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=1200&auto=format&fit=crop&q=80",
     videoUrl: "",
     website: "",
     github: "",
@@ -42,8 +42,6 @@ export default function CreateCampaignPage() {
     ],
   });
 
-  const categories = ["Technology", "AI", "Web3", "Education", "Gaming", "Open Source"];
-
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -53,16 +51,13 @@ export default function CreateCampaignPage() {
     data.append("file", file);
 
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: data,
-      });
+      const res = await fetch("/api/upload", { method: "POST", body: data });
       const result = await res.json();
       if (result.url) {
         setFormData({ ...formData, coverImage: result.url });
         toast.success("Image uploaded successfully!", { id: "upload" });
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to upload image", { id: "upload" });
     }
   };
@@ -85,10 +80,7 @@ export default function CreateCampaignPage() {
     try {
       const res = await fetch("/api/campaigns", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-wallet-address": publicKey,
-        },
+        headers: { "Content-Type": "application/json", "x-wallet-address": publicKey },
         body: JSON.stringify({ ...formData, publicKey }),
       });
 
@@ -109,128 +101,132 @@ export default function CreateCampaignPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <Container className="py-12 max-w-3xl space-y-8">
       {/* Header */}
-      <div className="space-y-2 text-center max-w-2xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-[#FF5A00]">
-          <Rocket className="w-3.5 h-3.5" />
-          Campaign Creator Studio
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-black text-slate-900">
-          Launch a Project on <span className="gradient-text">Stellar Soroban</span>
+      <div className="space-y-3 text-center max-w-xl mx-auto">
+        <p className="eyebrow">Creator Studio</p>
+        <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-fg">
+          Launch a Project on Stellar
         </h1>
-        <p className="text-xs text-slate-500 font-medium">
-          Provision an automated Soroban smart contract escrow in minutes. Zero middleman fees.
+        <p className="text-sm text-fg-muted">
+          Set a goal, tell your story, publish — the escrow contract is provisioned automatically.
         </p>
       </div>
 
-      {/* Stepper Header */}
-      <div className="glass-panel rounded-2xl p-4 border border-slate-200/80 bg-white shadow-sm flex justify-between items-center text-xs font-bold">
-        {[1, 2, 3, 4].map((s) => (
-          <div
-            key={s}
-            className={`flex items-center gap-2 ${step === s ? "text-[#FF5A00]" : step > s ? "text-emerald-600" : "text-slate-400"}`}
-          >
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold ${
-              step === s ? "bg-[#FF5A00] text-white" : step > s ? "bg-emerald-500 text-white" : "bg-slate-100 border border-slate-200"
-            }`}>
-              {step > s ? <CheckCircle2 className="w-4 h-4" /> : s}
+      {/* Stepper */}
+      <div className="flex items-center justify-between gap-2">
+        {STEP_LABELS.map((label, idx) => {
+          const n = idx + 1;
+          const state = n === step ? "active" : n < step ? "done" : "todo";
+          return (
+            <div key={label} className="flex items-center gap-2 flex-1 last:flex-none">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[12px] font-semibold transition-colors",
+                    state === "active" && "bg-accent text-fg-on-accent border-transparent",
+                    state === "done" && "bg-success/15 text-success border-success/40",
+                    state === "todo" && "bg-surface text-fg-faint border-line-strong"
+                  )}
+                >
+                  {state === "done" ? <Check className="w-4 h-4" /> : n}
+                </span>
+                <span
+                  className={cn(
+                    "hidden sm:block text-[12px] font-medium whitespace-nowrap",
+                    state === "active" ? "text-fg" : state === "done" ? "text-success" : "text-fg-faint"
+                  )}
+                >
+                  {label}
+                </span>
+              </div>
+              {idx < STEP_LABELS.length - 1 && (
+                <span className={cn("h-px flex-1 mx-1", n < step ? "bg-success/40" : "bg-line")} />
+              )}
             </div>
-            <span className="hidden sm:inline">
-              {s === 1 ? "Basic Details" : s === 2 ? "Goal & Timing" : s === 3 ? "Story & Media" : "Publish & Preview"}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Step Content */}
-      <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-slate-200/80 bg-white/90 shadow-xl space-y-6">
+      {/* Step content */}
+      <div className="panel p-6 sm:p-8 space-y-6">
         {step === 1 && (
           <div className="space-y-5">
-            <h3 className="text-lg font-bold text-slate-900">Step 1: Campaign Information</h3>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Campaign Title *</label>
-              <input
-                type="text"
+            <h3 className="font-display text-lg font-semibold text-fg">Campaign Information</h3>
+            <Field label="Campaign Title" required>
+              <Input
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder="e.g. Soroban Pay: Sub-Second Micropayments Protocol"
-                className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-semibold text-xs focus:outline-none focus:border-[#FF5A00]"
               />
-            </div>
+            </Field>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Category *</label>
+            <Field label="Category" required>
               <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                {categories.map((cat) => (
+                {CATEGORIES.map((cat) => (
                   <button
                     key={cat}
                     type="button"
                     onClick={() => setFormData({ ...formData, category: cat })}
-                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                    className={cn(
+                      "rounded-[10px] border py-2 text-[12px] font-medium transition-all",
                       formData.category === cat
-                        ? "bg-[#FF5A00] text-white border-[#FF5A00] shadow-sm"
-                        : "bg-slate-50 text-slate-600 border-slate-200 hover:text-slate-900 hover:bg-slate-100"
-                    }`}
+                        ? "bg-accent text-fg-on-accent border-transparent"
+                        : "bg-surface text-fg-muted border-line-strong hover:text-fg hover:border-line-bright"
+                    )}
                   >
                     {cat}
                   </button>
                 ))}
               </div>
-            </div>
+            </Field>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Short Summary (1-2 sentences) *</label>
-              <textarea
+            <Field label="Short Summary" required hint="1–2 sentences">
+              <Textarea
                 rows={2}
                 value={formData.shortDescription}
                 onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
-                placeholder="A high-level summary of your project vision and goals..."
-                className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-medium text-xs focus:outline-none focus:border-[#FF5A00]"
+                placeholder="A high-level summary of your project vision and goals…"
               />
-            </div>
+            </Field>
           </div>
         )}
 
         {step === 2 && (
           <div className="space-y-5">
-            <h3 className="text-lg font-bold text-slate-900">Step 2: Funding Target & Timeline</h3>
-
+            <h3 className="font-display text-lg font-semibold text-fg">Funding Target & Timeline</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Funding Goal (XLM) *</label>
+              <Field label="Funding Goal" required>
                 <div className="relative">
-                  <input
+                  <Input
                     type="number"
                     min="100"
                     value={formData.fundingGoal}
                     onChange={(e) => setFormData({ ...formData, fundingGoal: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-extrabold text-xs focus:outline-none focus:border-[#FF5A00]"
+                    className="pr-16 tabular font-semibold"
                   />
-                  <span className="absolute right-4 top-3.5 text-xs font-extrabold text-[#FF5A00]">XLM</span>
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-semibold text-accent">XLM</span>
                 </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Campaign Duration (Days) *</label>
-                <input
+              </Field>
+              <Field label="Duration (Days)" required>
+                <Input
                   type="number"
                   min="7"
                   max="90"
                   value={formData.deadlineDays}
                   onChange={(e) => setFormData({ ...formData, deadlineDays: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-extrabold text-xs focus:outline-none focus:border-[#FF5A00]"
+                  className="tabular font-semibold"
                 />
-              </div>
+              </Field>
             </div>
 
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 shrink-0 text-emerald-600" />
+            <div className="rounded-[12px] border border-success/25 bg-success/8 p-4 flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 shrink-0 text-success" />
               <div>
-                <p className="font-bold">Automated Soroban Contract Escrow Guarantee</p>
-                <p className="text-[11px] text-emerald-700 mt-0.5 font-medium">
-                  Your funds will be locked securely inside the Soroban contract escrow until {formData.deadlineDays} days pass. If {formData.fundingGoal} XLM is reached, you can withdraw immediately.
+                <p className="text-[13px] font-semibold text-success">Automated escrow guarantee</p>
+                <p className="mt-1 text-[12px] text-fg-muted leading-relaxed">
+                  Funds lock in the Soroban escrow for {formData.deadlineDays} days. Reach {formData.fundingGoal} XLM
+                  and you can withdraw immediately; otherwise backers are refunded automatically.
                 </p>
               </div>
             </div>
@@ -239,47 +235,41 @@ export default function CreateCampaignPage() {
 
         {step === 3 && (
           <div className="space-y-5">
-            <h3 className="text-lg font-bold text-slate-900">Step 3: Story & Media Upload</h3>
+            <h3 className="font-display text-lg font-semibold text-fg">Story & Media</h3>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Cover Image *</label>
+            <Field label="Cover Image" required>
               <div className="flex items-center gap-4">
-                <div className="relative w-32 h-20 rounded-xl overflow-hidden glass-panel border border-slate-200 bg-white">
-                  <Image src={formData.coverImage} alt="Cover Preview" fill className="object-cover" />
+                <div className="relative h-20 w-32 overflow-hidden rounded-box border border-line">
+                  <Image src={formData.coverImage} alt="Cover preview" fill className="object-cover" sizes="128px" />
                 </div>
-                <label className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold text-xs cursor-pointer flex items-center gap-2 border border-slate-200">
-                  <Upload className="w-4 h-4 text-slate-600" />
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] border border-line-strong bg-surface px-4 py-2.5 text-[13px] font-medium text-fg transition-colors hover:border-line-bright">
+                  <Upload className="w-4 h-4 text-fg-muted" />
                   Upload Image
                   <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                 </label>
               </div>
-            </div>
+            </Field>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Full Project Story (Markdown) *</label>
-              <textarea
+            <Field label="Project Story" required hint="Markdown supported">
+              <Textarea
                 rows={6}
                 value={formData.story}
                 onChange={(e) => setFormData({ ...formData, story: e.target.value })}
-                placeholder="Explain why you are building this project, why Stellar Soroban is used, and how funds will be spent..."
-                className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-mono focus:outline-none focus:border-[#FF5A00]"
+                placeholder="Explain what you're building, why Stellar, and how funds will be used…"
+                className="font-mono text-[13px]"
               />
-            </div>
+            </Field>
 
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="text"
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
                 value={formData.website}
                 onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                 placeholder="Website URL"
-                className="px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-medium focus:outline-none"
               />
-              <input
-                type="text"
+              <Input
                 value={formData.github}
                 onChange={(e) => setFormData({ ...formData, github: e.target.value })}
                 placeholder="GitHub Repo URL"
-                className="px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-medium focus:outline-none"
               />
             </div>
           </div>
@@ -287,65 +277,42 @@ export default function CreateCampaignPage() {
 
         {step === 4 && (
           <div className="space-y-6">
-            <h3 className="text-lg font-bold text-slate-900">Step 4: Review & Publish to Soroban</h3>
-
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 font-medium">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">Campaign Title</span>
-                <span className="text-sm font-bold text-slate-900">{formData.title}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">Funding Goal</span>
-                <span className="text-sm font-black text-[#FF5A00]">{formData.fundingGoal} XLM</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">Category</span>
-                <span className="text-sm font-bold text-[#0284C7]">{formData.category}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">Duration</span>
-                <span className="text-sm font-bold text-slate-900">{formData.deadlineDays} Days</span>
-              </div>
+            <h3 className="font-display text-lg font-semibold text-fg">Review & Publish</h3>
+            <div className="rounded-[12px] border border-line bg-surface-2/40 divide-y divide-line">
+              {[
+                ["Campaign Title", formData.title || "—"],
+                ["Funding Goal", `${formData.fundingGoal} XLM`],
+                ["Category", formData.category],
+                ["Duration", `${formData.deadlineDays} days`],
+              ].map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between px-4 py-3">
+                  <span className="text-[12px] text-fg-faint">{k}</span>
+                  <span className="text-[13px] font-semibold text-fg">{v}</span>
+                </div>
+              ))}
             </div>
-
-            <button
-              onClick={handlePublish}
-              disabled={isSubmitting}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF5A00] to-[#FF8A00] hover:from-[#FF7A00] text-white font-black text-base shadow-xl shadow-[#FF5A00]/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
-            >
-              <Rocket className="w-5 h-5" />
-              Publish Campaign & Deploy Soroban Contract
-            </button>
+            <Button size="lg" onClick={handlePublish} loading={isSubmitting} icon={<Rocket className="w-[18px] h-[18px]" />} className="w-full">
+              Publish & Deploy Contract
+            </Button>
           </div>
         )}
 
-        {/* Stepper Buttons */}
-        <div className="flex justify-between pt-4 border-t border-slate-200">
+        {/* Stepper controls */}
+        <div className="flex items-center justify-between pt-4 border-t border-line">
           {step > 1 ? (
-            <button
-              type="button"
-              onClick={() => setStep(step - 1)}
-              className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold text-xs flex items-center gap-2 border border-slate-200"
-            >
-              <ArrowLeft className="w-4 h-4" />
+            <Button variant="secondary" size="sm" onClick={() => setStep(step - 1)} icon={<ArrowLeft className="w-4 h-4" />}>
               Previous
-            </button>
+            </Button>
           ) : (
-            <div />
+            <span />
           )}
-
           {step < 4 && (
-            <button
-              type="button"
-              onClick={() => setStep(step + 1)}
-              className="px-6 py-2.5 rounded-xl bg-[#FF5A00] hover:bg-[#FF7A00] text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-[#FF5A00]/25"
-            >
+            <Button size="sm" onClick={() => setStep(step + 1)} icon={<ArrowRight className="w-4 h-4" />} iconPosition="right">
               Next Step
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            </Button>
           )}
         </div>
       </div>
-    </div>
+    </Container>
   );
 }

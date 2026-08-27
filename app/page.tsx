@@ -1,40 +1,111 @@
 import Link from "next/link";
-import Image from "next/image";
 import {
-  Rocket,
-  Compass,
   ShieldCheck,
   Zap,
   Lock,
-  RefreshCw,
-  Sparkles,
   ArrowRight,
-  TrendingUp,
-  Award,
-  Users,
-  CheckCircle2,
-  HelpCircle,
   Coins,
-  Code2,
-  Layers,
+  RefreshCw,
+  Check,
+  Network,
+  Brain,
+  Cpu,
+  GraduationCap,
+  Gamepad2,
+  GitFork,
 } from "lucide-react";
-import { CampaignCard } from "@/components/campaign-card";
 import { prisma } from "@/lib/prisma";
+import { CampaignCard } from "@/components/campaign-card";
+import { HeroVisual } from "@/components/three/HeroVisual";
+import { Reveal } from "@/components/ui/reveal";
+import { Container } from "@/components/ui/container";
+import { Button } from "@/components/ui/button";
+import { cn, formatXlm } from "@/lib/utils";
 
-export const revalidate = 60; // Refresh every minute
+export const revalidate = 60;
 
-export default async function HomePage() {
-  // Fetch featured campaigns from database
-  let featuredCampaigns: any[] = [];
-  let stats = {
-    totalRaised: 74450,
-    activeCampaigns: 4,
-    totalBackers: 1420,
-    successRate: 98,
+const STEPS = [
+  {
+    step: "01",
+    title: "Create your campaign",
+    desc: "Set your XLM funding target, deadline, and milestones. Tell your project story.",
+  },
+  {
+    step: "02",
+    title: "Escrow deploys itself",
+    desc: "A Soroban smart contract is provisioned automatically on Stellar when you publish.",
+  },
+  {
+    step: "03",
+    title: "Receive XLM",
+    desc: "Supporters back you from Freighter or any Stellar wallet. Settlement takes about a second.",
+  },
+  {
+    step: "04",
+    title: "Reach goal or refund",
+    desc: "Hit your goal and withdraw. Miss it and the contract refunds backers in full.",
+  },
+];
+
+const STELLAR_FEATURES = [
+  {
+    icon: Zap,
+    title: "Sub-Second Settlement",
+    desc: "Transactions finalize on Stellar in ~1 second with deterministic finality.",
+  },
+  {
+    icon: Coins,
+    title: "Fractional Fees",
+    desc: "Average network fee is under 0.00001 XLM — a fraction of a cent.",
+  },
+  {
+    icon: RefreshCw,
+    title: "Automated Refunds",
+    desc: "The contract unlocks 100% refunds to backers if a target isn't met.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Audited Rust Contracts",
+    desc: "Soroban's memory-safe SDK eliminates whole classes of escrow exploits.",
+  },
+];
+
+const CATEGORIES = [
+  { name: "Web3 & Soroban", param: "Web3", icon: Network, href: "/campaigns?category=Web3" },
+  { name: "Artificial Intelligence", param: "AI", icon: Brain, href: "/campaigns?category=AI" },
+  { name: "Technology", param: "Technology", icon: Cpu, href: "/campaigns?category=Technology" },
+  { name: "Education", param: "Education", icon: GraduationCap, href: "/campaigns?category=Education" },
+  { name: "Gaming", param: "Gaming", icon: Gamepad2, href: "/campaigns?category=Gaming" },
+  { name: "Open Source", param: "Open Source", icon: GitFork, href: "/campaigns?category=Open+Source" },
+];
+
+const FAQS = [
+  {
+    q: "How does CrowdFundX secure my donated XLM?",
+    a: "Every campaign is governed by a Soroban smart contract on Stellar. Funds are locked in contract escrow until the funding goal is met or the deadline expires — no platform custody at any point.",
+  },
+  {
+    q: "What happens if a campaign misses its goal?",
+    a: "Supporters can execute a 100% refund claim directly against the Soroban contract. No middleman approval is required.",
+  },
+  {
+    q: "Which wallets are supported?",
+    a: "Freighter is natively supported, along with any Stellar wallet compatible with keypair signing.",
+  },
+  {
+    q: "What are the platform fees?",
+    a: "0% platform fees. You only pay the standard Stellar network fee (~0.00001 XLM per transaction).",
+  },
+];
+
+async function getHomeData() {
+  const fallback = {
+    featured: [] as any[],
+    stats: { totalRaised: 74450, activeCampaigns: 4, totalBackers: 1420 },
+    categoryCounts: { Web3: 12, AI: 18, Technology: 24, Education: 9, Gaming: 15, "Open Source": 21 } as Record<string, number>,
   };
-
   try {
-    featuredCampaigns = await prisma.campaign.findMany({
+    const featured = await prisma.campaign.findMany({
       take: 3,
       orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
       include: {
@@ -43,407 +114,338 @@ export default async function HomePage() {
       },
     });
 
-    const totalRaisedAgg = await prisma.campaign.aggregate({
-      _sum: { raisedAmount: true },
-    });
-    if (totalRaisedAgg._sum.raisedAmount) {
-      stats.totalRaised = Math.round(totalRaisedAgg._sum.raisedAmount);
-    }
+    const totalRaisedAgg = await prisma.campaign.aggregate({ _sum: { raisedAmount: true } });
+    const activeCampaigns = await prisma.campaign.count({ where: { status: { in: ["ACTIVE", "SUCCESSFUL"] } } });
+    const backers = await prisma.donation.groupBy({ by: ["contributorAddress"] });
+    const byCategory = await prisma.campaign.groupBy({ by: ["category"], _count: { _all: true } });
+
+    return {
+      featured,
+      stats: {
+        totalRaised: Math.round(totalRaisedAgg._sum.raisedAmount ?? fallback.stats.totalRaised),
+        activeCampaigns: activeCampaigns || fallback.stats.activeCampaigns,
+        totalBackers: backers.length || fallback.stats.totalBackers,
+      },
+      categoryCounts: Object.fromEntries(byCategory.map((g) => [g.category, g._count._all])),
+    };
   } catch (e) {
-    console.warn("Using fallback initial data");
+    console.warn("Using fallback home data");
+    return fallback;
   }
+}
 
-  const steps = [
-    {
-      step: "01",
-      title: "Create Campaign",
-      desc: "Set your funding target in XLM, deadline, milestones, and upload your project story.",
-      icon: Rocket,
-      color: "from-orange-500 to-amber-500",
-    },
-    {
-      step: "02",
-      title: "Deploy Soroban Escrow",
-      desc: "Our engine automatically provisions an audited Soroban smart contract on Stellar.",
-      icon: Code2,
-      color: "from-[#FF5A00] to-purple-600",
-    },
-    {
-      step: "03",
-      title: "Receive XLM Donations",
-      desc: "Supporters back your project directly from Freighter or any Stellar wallet with sub-second finality.",
-      icon: Coins,
-      color: "from-purple-600 to-[#0284C7]",
-    },
-    {
-      step: "04",
-      title: "Reach Goal or Refund",
-      desc: "If goal is met, creator withdraws funds. If goal fails, contract refunds 100% to supporters automatically.",
-      icon: RefreshCw,
-      color: "from-[#0284C7] to-emerald-500",
-    },
-  ];
-
-  const categories = [
-    { name: "Web3 & Soroban", count: "12 Projects", icon: Layers, href: "/campaigns?category=Web3" },
-    { name: "Artificial Intelligence", count: "18 Projects", icon: Zap, href: "/campaigns?category=AI" },
-    { name: "Technology", count: "24 Projects", icon: Code2, href: "/campaigns?category=Technology" },
-    { name: "Education & Literacy", count: "9 Projects", icon: Award, href: "/campaigns?category=Education" },
-    { name: "Gaming & Metaverse", count: "15 Projects", icon: Rocket, href: "/campaigns?category=Gaming" },
-    { name: "Open Source", count: "21 Projects", icon: ShieldCheck, href: "/campaigns?category=Open+Source" },
-  ];
-
-  const faqs = [
-    {
-      q: "How does CrowdFundX secure my donated XLM?",
-      a: "Every campaign deployed on CrowdFundX is governed by a Soroban smart contract on the Stellar network. Funds are locked strictly inside the contract escrow until either the funding goal is met or the deadline expires.",
-    },
-    {
-      q: "What happens if a campaign fails to reach its funding goal?",
-      a: "If a campaign does not meet its target before the deadline, all supporters can execute a 100% claim refund call directly against the Soroban contract. No platform middleman intervention is required.",
-    },
-    {
-      q: "Which Stellar wallets are supported?",
-      a: "CrowdFundX natively supports Freighter Wallet, Stellar Wallet Kit, and any wallet compatible with Stellar network keypair signing.",
-    },
-    {
-      q: "What are the platform fees?",
-      a: "CrowdFundX charges 0% middleman fees. You only pay standard Stellar network gas fees (0.00001 XLM per transaction).",
-    },
-  ];
+export default async function HomePage() {
+  const { featured, stats, categoryCounts } = await getHomeData();
 
   return (
-    <div className="space-y-24 pb-16">
-      {/* Hero Section */}
-      <section className="relative pt-12 pb-20 overflow-hidden">
-        {/* Glowing Ambient Spheres */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-[#FF5A00]/15 via-[#0284C7]/15 to-[#3E1B96]/15 rounded-full blur-[140px] pointer-events-none -z-10" />
+    <div className="pb-24">
+      {/* ============ HERO ============ */}
+      <section className="relative overflow-hidden">
+        {/* 3D backdrop, biased right on desktop */}
+        <div className="absolute inset-y-0 right-0 w-full lg:w-[62%]">
+          <HeroVisual className="absolute inset-0 h-full w-full" />
+        </div>
+        {/* Readability scrim + bottom fade (pointer-transparent so the canvas gets parallax input) */}
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-bg via-bg/55 to-transparent lg:via-bg/25" />
+        <div className="absolute inset-x-0 bottom-0 h-32 pointer-events-none bg-gradient-to-t from-bg to-transparent" />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            {/* Left Content */}
-            <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-              {/* Headline */}
-              <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.1] text-slate-900">
-                Launch. Fund. Build. <br />
-                <span className="gradient-text">Powered by Stellar.</span>
+        <Container className="relative z-10 pt-20 pb-28 lg:pt-28 lg:pb-36">
+          <div className="max-w-2xl space-y-7">
+            <Reveal>
+              <p className="eyebrow flex items-center gap-2.5">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-network" />
+                Crowdfunding on the Stellar network
+              </p>
+            </Reveal>
+
+            <Reveal delay={0.08}>
+              <h1 className="font-display text-[42px] leading-[1.04] font-semibold tracking-tight text-fg sm:text-6xl lg:text-[68px]">
+                Launch. Fund. Build.
+                <br />
+                Crowdfunding on <span className="text-accent">Stellar</span>.
               </h1>
+            </Reveal>
 
-              {/* Subtitle */}
-              <p className="text-base sm:text-lg text-slate-600 max-w-2xl font-normal leading-relaxed">
-                The zero-middleman decentralized crowdfunding platform where creator campaigns are backed by audited Soroban smart contracts. Funds remain 100% secure until success or automated refund.
+            <Reveal delay={0.16}>
+              <p className="text-[15px] sm:text-[17px] leading-relaxed text-fg-muted max-w-xl">
+                Every campaign is secured by a Soroban smart contract. Funds stay in escrow until the
+                goal is met — otherwise they are refunded automatically.
               </p>
+            </Reveal>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start pt-2">
-                <Link
-                  href="/campaigns"
-                  className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-[#FF5A00] to-[#FF8A00] hover:from-[#FF7A00] text-white font-black text-base shadow-xl shadow-[#FF5A00]/25 transition-all hover:scale-105 flex items-center justify-center gap-2"
-                >
-                  <Compass className="w-5 h-5" />
-                  Explore Campaigns
-                </Link>
-                <Link
-                  href="/campaigns/create"
-                  className="w-full sm:w-auto px-8 py-4 rounded-2xl glass-panel hover:bg-slate-100 text-slate-900 font-bold text-base border border-slate-200 shadow-sm transition-all hover:scale-105 flex items-center justify-center gap-2"
-                >
-                  <Rocket className="w-5 h-5 text-[#FF5A00]" />
-                  Launch Project
-                </Link>
+            <Reveal delay={0.24}>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-1">
+                <Button size="lg" href="/campaigns">Explore Campaigns</Button>
+                <Button size="lg" variant="outline" href="/campaigns/create">Launch a Project</Button>
               </div>
+            </Reveal>
 
-              {/* Trust indicators */}
-              <div className="pt-6 flex items-center justify-center lg:justify-start gap-6 text-xs text-slate-600 font-semibold">
-                <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  No Middleman Fees
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-amber-600" />
-                  Sub-Second XLM Finality
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Lock className="w-4 h-4 text-[#0284C7]" />
-                  Soroban Escrow Secured
-                </div>
+            <Reveal delay={0.32}>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-4 text-[12px] text-fg-muted">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-fg-faint" /> No middleman fees
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-fg-faint" /> Sub-second finality
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Lock className="w-4 h-4 text-fg-faint" /> Soroban escrow secured
+                </span>
               </div>
+            </Reveal>
+          </div>
+        </Container>
+      </section>
+
+      {/* ============ STATS ============ */}
+      <section className="relative -mt-10 z-20">
+        <Container>
+          <Reveal>
+            <div className="panel grid grid-cols-2 lg:grid-cols-4 overflow-hidden">
+              {[
+                { label: "Total Raised", value: formatXlm(stats.totalRaised), suffix: "XLM", accent: true },
+                { label: "Active Campaigns", value: String(stats.activeCampaigns) },
+                { label: "Total Backers", value: formatXlm(stats.totalBackers) },
+                { label: "Refund Guarantee", value: "100%" },
+              ].map((s, i) => (
+                <Stat
+                  key={s.label}
+                  label={s.label}
+                  value={s.value}
+                  suffix={s.suffix}
+                  accent={s.accent}
+                  className={cn(
+                    i % 2 === 1 && "border-l border-line",
+                    i >= 2 && "border-t border-line lg:border-t-0",
+                    i > 0 && "lg:border-l lg:border-line"
+                  )}
+                />
+              ))}
             </div>
+          </Reveal>
+        </Container>
+      </section>
 
-            {/* Right Hero Graphic Card */}
-            <div className="lg:col-span-5 relative">
-              <div className="glass-panel rounded-3xl p-6 border border-slate-200/80 bg-white/90 shadow-2xl relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF5A00]/10 rounded-full blur-2xl pointer-events-none"></div>
-
-                <div className="flex items-center justify-between mb-4">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#FF5A00]/15 text-[#FF5A00] border border-[#FF5A00]/25">
-                    🔥 Featured Campaign
-                  </span>
-                  <span className="text-xs text-emerald-700 font-bold flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    Live Escrow
-                  </span>
-                </div>
-
-                <div className="relative h-56 rounded-2xl overflow-hidden mb-4 shadow-sm">
-                  <Image
-                    src="https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&auto=format&fit=crop&q=80"
-                    alt="Hero Preview"
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
-                  <div className="absolute bottom-3 left-3 right-3 text-white">
-                    <h3 className="font-extrabold text-base">Soroban Pay: Next-Gen Micropayments Protocol</h3>
-                    <p className="text-xs text-slate-300 font-medium">By Aria Vance • Web3 Category</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center text-sm font-bold text-slate-900">
-                    <span>18,450 XLM Raised</span>
-                    <span className="text-[#0284C7] font-black">74%</span>
-                  </div>
-                  <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden border border-slate-200/60">
-                    <div className="h-full rounded-full bg-gradient-to-r from-[#FF5A00] to-[#0284C7] w-[74%]" />
-                  </div>
-                  <div className="flex justify-between text-xs text-slate-500 font-medium">
-                    <span>Goal: 25,000 XLM</span>
-                    <span>120 Backers • 15 Days Left</span>
-                  </div>
-                </div>
-
-                <Link
-                  href="/campaigns/soroban-pay-protocol"
-                  className="mt-5 w-full py-3 rounded-xl bg-slate-100 hover:bg-[#FF5A00] text-slate-900 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-sm"
-                >
-                  View Live Campaign
-                  <ArrowRight className="w-4 h-4" />
+      {/* ============ FEATURED ============ */}
+      <section className="pt-24">
+        <Container className="space-y-10">
+          <Reveal>
+            <SectionHeading
+              eyebrow="Marketplace"
+              title="Featured Campaigns"
+              action={
+                <Link href="/campaigns" className="inline-flex items-center gap-1.5 text-sm text-network hover:text-fg transition-colors">
+                  View all <ArrowRight className="w-4 h-4" />
                 </Link>
+              }
+            />
+          </Reveal>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {featured.map((c: any, i: number) => (
+              <Reveal key={c.id} delay={i * 0.08}>
+                <CampaignCard campaign={c} />
+              </Reveal>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      {/* ============ HOW IT WORKS ============ */}
+      <section className="pt-28">
+        <Container className="space-y-12">
+          <Reveal>
+            <SectionHeading
+              eyebrow="Process"
+              title="How It Works"
+              description="From contract creation to automated refunds, every step executes on-chain."
+            />
+          </Reveal>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {STEPS.map((s, i) => (
+              <Reveal key={s.step} delay={i * 0.08}>
+                <div className="panel panel-hover h-full p-6 space-y-4">
+                  <span className="block font-mono text-[12px] tracking-widest text-accent">{s.step}</span>
+                  <div className="space-y-2">
+                    <h3 className="font-display text-[16px] font-semibold text-fg">{s.title}</h3>
+                    <p className="text-[13px] leading-relaxed text-fg-muted">{s.desc}</p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      {/* ============ WHY STELLAR ============ */}
+      <section className="pt-28">
+        <Container>
+          <div className="panel overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-12">
+              <div className="lg:col-span-5 p-8 sm:p-12 border-b lg:border-b-0 lg:border-r border-line space-y-5">
+                <p className="eyebrow">The Network</p>
+                <h2 className="font-display text-3xl font-semibold text-fg leading-tight">
+                  Why crowdfunding belongs on Stellar
+                </h2>
+                <p className="text-sm leading-relaxed text-fg-muted">
+                  Legacy platforms charge 5–10% fees, hold funds for weeks, and can freeze accounts arbitrarily.
+                  CrowdFundX uses Soroban smart contracts to make raising money fast, decentralized, and trustless.
+                </p>
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Live Statistics Ticker */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="glass-panel rounded-3xl p-8 border border-slate-200/80 bg-white/90 shadow-xl grid grid-cols-2 md:grid-cols-4 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-200">
-          <div className="text-center pt-4 md:pt-0">
-            <p className="text-3xl sm:text-4xl font-black text-slate-900 gradient-text">
-              {stats.totalRaised.toLocaleString()} <span className="text-sm font-bold text-[#FF5A00]">XLM</span>
-            </p>
-            <p className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Total Raised</p>
-          </div>
-
-          <div className="text-center pt-4 md:pt-0">
-            <p className="text-3xl sm:text-4xl font-black text-slate-900">
-              {stats.activeCampaigns}
-            </p>
-            <p className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Active Campaigns</p>
-          </div>
-
-          <div className="text-center pt-4 md:pt-0">
-            <p className="text-3xl sm:text-4xl font-black text-[#0284C7]">
-              {stats.totalBackers.toLocaleString()}
-            </p>
-            <p className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Total Backers</p>
-          </div>
-
-          <div className="text-center pt-4 md:pt-0">
-            <p className="text-3xl sm:text-4xl font-black text-emerald-600">
-              {stats.successRate}%
-            </p>
-            <p className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">Escrow Success Rate</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Featured Campaigns Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-4">
-          <div>
-            <span className="text-xs font-extrabold tracking-wider uppercase text-[#FF5A00]">Curated Projects</span>
-            <h2 className="text-3xl font-black text-slate-900 mt-1">Featured Soroban Campaigns</h2>
-          </div>
-          <Link
-            href="/campaigns"
-            className="flex items-center gap-2 text-xs font-bold text-[#0284C7] hover:text-slate-900 transition-colors"
-          >
-            View All Marketplace Campaigns
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {featuredCampaigns.map((c) => (
-            <CampaignCard key={c.id} campaign={c} />
-          ))}
-        </div>
-      </section>
-
-      {/* How CrowdFundX Works Stepper */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        <div className="text-center max-w-3xl mx-auto space-y-3">
-          <span className="text-xs font-extrabold tracking-wider uppercase text-[#0284C7]">Simple & Transparent</span>
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-900">How CrowdFundX Works</h2>
-          <p className="text-sm text-slate-600 font-normal">
-            From smart contract creation to automated refunds, every step is executed on-chain without any central authority.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {steps.map((s) => {
-            const Icon = s.icon;
-            return (
-              <div
-                key={s.step}
-                className="glass-panel rounded-3xl p-6 border border-slate-200/80 bg-white/90 shadow-sm relative space-y-4 hover:border-[#FF5A00]/40 transition-all group"
-              >
-                <div className="flex justify-between items-center">
-                  <span className="text-2xl font-black text-slate-300 group-hover:text-[#FF5A00] transition-colors">
-                    {s.step}
-                  </span>
-                  <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${s.color} p-0.5 shadow-md`}>
-                    <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center">
-                      <Icon className="w-6 h-6 text-slate-900" />
+              <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2">
+                {STELLAR_FEATURES.map((f, i) => {
+                  const Icon = f.icon;
+                  return (
+                    <div
+                      key={f.title}
+                      className={cn(
+                        "p-7 space-y-2.5",
+                        i < 3 && "border-b border-line",
+                        i >= 2 && "sm:border-b-0",
+                        i < 2 && "sm:border-b sm:border-line",
+                        i % 2 === 0 && "sm:border-r sm:border-line"
+                      )}
+                    >
+                      <Icon className="w-5 h-5 text-accent" />
+                      <h3 className="font-display text-[15px] font-semibold text-fg">{f.title}</h3>
+                      <p className="text-[13px] leading-relaxed text-fg-muted">{f.desc}</p>
                     </div>
-                  </div>
-                </div>
-
-                <h3 className="text-lg font-extrabold text-slate-900">{s.title}</h3>
-                <p className="text-xs text-slate-600 leading-relaxed font-normal">{s.desc}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Why Stellar & Soroban Matrix */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="glass-panel rounded-3xl p-8 sm:p-12 border border-slate-200/80 bg-white/90 shadow-xl relative overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            <div className="lg:col-span-5 space-y-4">
-              <span className="text-xs font-extrabold tracking-wider uppercase text-emerald-700">Next-Gen Architecture</span>
-              <h2 className="text-3xl font-black text-slate-900 leading-tight">
-                Why CrowdFundX is Built on Stellar
-              </h2>
-              <p className="text-sm text-slate-600 leading-relaxed font-normal">
-                Traditional crowdfunding platforms charge 5-10% in platform fees, hold your funds for weeks, and subject creators to arbitrary account freezes.
-              </p>
-              <p className="text-sm text-slate-600 leading-relaxed font-normal">
-                CrowdFundX leverages Soroban smart contracts to make crowdfunding fast, decentralized, and trustless.
-              </p>
-            </div>
-
-            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                  <Zap className="w-5 h-5 text-amber-600" />
-                  Sub-Second Settlement
-                </div>
-                <p className="text-xs text-slate-500">Transactions finalize on Stellar in ~1 second with absolute deterministic guarantee.</p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                  <Coins className="w-5 h-5 text-[#FF5A00]" />
-                  Fractional Gas Fees
-                </div>
-                <p className="text-xs text-slate-500">Average transaction fee is less than 0.00001 XLM ($0.000001 USD).</p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                  <RefreshCw className="w-5 h-5 text-[#0284C7]" />
-                  Automated Refunds
-                </div>
-                <p className="text-xs text-slate-500">Contract automatically unlocks 100% refunds for backers if funding target fails.</p>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  Audited Rust Contracts
-                </div>
-                <p className="text-xs text-slate-500">Soroban SDK memory safety eliminates common smart contract reentrancy bugs.</p>
+                  );
+                })}
               </div>
             </div>
           </div>
-        </div>
+        </Container>
       </section>
 
-      {/* Categories Grid */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <div className="text-center space-y-2">
-          <span className="text-xs font-extrabold tracking-wider uppercase text-[#FF5A00]">Diverse Ecosystem</span>
-          <h2 className="text-3xl font-black text-slate-900">Browse by Category</h2>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {categories.map((c) => {
-            const Icon = c.icon;
-            return (
-              <Link
-                key={c.name}
-                href={c.href}
-                className="glass-panel glass-panel-hover p-5 rounded-2xl border border-slate-200/80 bg-white/90 flex flex-col items-center text-center space-y-3 group shadow-sm"
-              >
-                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-[#FF5A00] group-hover:scale-110 transition-transform">
-                  <Icon className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 group-hover:text-[#FF5A00] transition-colors">{c.name}</h4>
-                  <span className="text-[11px] text-slate-500 font-medium">{c.count}</span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        <div className="text-center space-y-2">
-          <span className="text-xs font-extrabold tracking-wider uppercase text-[#0284C7]">Got Questions?</span>
-          <h2 className="text-3xl font-black text-slate-900">Frequently Asked Questions</h2>
-        </div>
-
-        <div className="space-y-4">
-          {faqs.map((faq, idx) => (
-            <div key={idx} className="glass-panel rounded-2xl p-6 border border-slate-200/80 bg-white/90 space-y-2 shadow-sm">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-[#FF5A00]" />
-                {faq.q}
-              </h3>
-              <p className="text-xs text-slate-600 leading-relaxed pl-6 font-normal">{faq.a}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Bottom CTA */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="glass-panel rounded-3xl p-10 sm:p-16 border border-slate-200/80 bg-white/90 relative overflow-hidden text-center space-y-6 shadow-xl">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-gradient-to-r from-[#FF5A00]/15 to-[#0284C7]/15 blur-3xl rounded-full pointer-events-none"></div>
-
-          <h2 className="text-3xl sm:text-5xl font-black text-slate-900 max-w-2xl mx-auto leading-tight">
-            Ready to Launch Your Next Big Idea on Stellar?
-          </h2>
-          <p className="text-sm sm:text-base text-slate-600 max-w-xl mx-auto font-normal">
-            Join hundreds of creators and supporters building the future of decentralized crowdfunding with Soroban.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Link
-              href="/campaigns/create"
-              className="px-8 py-4 rounded-2xl bg-gradient-to-r from-[#FF5A00] to-[#FF8A00] text-white font-black text-base shadow-xl shadow-[#FF5A00]/25 transition-all hover:scale-105 flex items-center gap-2"
-            >
-              <Rocket className="w-5 h-5" />
-              Create Campaign Now
-            </Link>
+      {/* ============ CATEGORIES ============ */}
+      <section className="pt-28">
+        <Container className="space-y-10">
+          <Reveal>
+            <SectionHeading eyebrow="Categories" title="Browse by Category" />
+          </Reveal>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {CATEGORIES.map((c, i) => {
+              const Icon = c.icon;
+              const count = categoryCounts[c.param] ?? 0;
+              return (
+                <Reveal key={c.name} delay={i * 0.05}>
+                  <Link
+                    href={c.href}
+                    className="panel panel-hover group flex flex-col items-center text-center gap-3 p-6"
+                  >
+                    <span className="flex h-11 w-11 items-center justify-center rounded-[12px] border border-line bg-surface-2 text-network transition-colors group-hover:text-accent group-hover:border-accent/40">
+                      <Icon className="w-5 h-5" />
+                    </span>
+                    <span className="space-y-0.5">
+                      <span className="block text-[13px] font-semibold text-fg group-hover:text-accent-strong transition-colors">
+                        {c.name}
+                      </span>
+                      <span className="block text-[11px] text-fg-faint tabular">
+                        {count} {count === 1 ? "project" : "projects"}
+                      </span>
+                    </span>
+                  </Link>
+                </Reveal>
+              );
+            })}
           </div>
-        </div>
+        </Container>
       </section>
+
+      {/* ============ FAQ ============ */}
+      <section className="pt-28">
+        <Container className="max-w-3xl space-y-10">
+          <Reveal>
+            <SectionHeading eyebrow="FAQ" title="Frequently asked questions" />
+          </Reveal>
+          <div className="space-y-3">
+            {FAQS.map((faq, i) => (
+              <Reveal key={i} delay={i * 0.06}>
+                <div className="panel p-6 space-y-2">
+                  <h3 className="text-[15px] font-semibold text-fg">{faq.q}</h3>
+                  <p className="text-[13px] leading-relaxed text-fg-muted">{faq.a}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </Container>
+      </section>
+
+      {/* ============ CTA ============ */}
+      <section className="pt-28">
+        <Container>
+          <Reveal>
+            <div className="panel relative overflow-hidden p-10 sm:p-16 text-center">
+              <div className="absolute inset-0 starfield opacity-30 pointer-events-none" />
+              <div className="relative space-y-6 max-w-2xl mx-auto">
+                <h2 className="font-display text-3xl sm:text-[44px] leading-tight font-semibold text-fg">
+                  Launch your next project on Stellar
+                </h2>
+                <p className="text-[15px] text-fg-muted max-w-xl mx-auto">
+                  Creators raise, backers contribute, and the contract handles the rest.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                  <Button size="lg" href="/campaigns/create">Create Campaign</Button>
+                  <Button size="lg" variant="outline" href="/campaigns">Browse Projects</Button>
+                </div>
+                <div className="flex items-center justify-center gap-5 text-[11px] text-fg-faint pt-2">
+                  <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-success" /> 0% platform fee</span>
+                  <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-success" /> Automated refunds</span>
+                  <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-success" /> Live on testnet</span>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </Container>
+      </section>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  suffix,
+  accent,
+  className,
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+  accent?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={cn("px-6 py-6 sm:px-8 sm:py-7", className)}>
+      <p className="font-display text-2xl sm:text-[30px] font-semibold text-fg tabular">
+        {value} {suffix && <span className={accent ? "text-accent text-sm" : "text-fg-faint text-sm"}>{suffix}</span>}
+      </p>
+      <p className="mt-1 text-[11px] uppercase tracking-wider text-fg-faint font-mono">{label}</p>
+    </div>
+  );
+}
+
+function SectionHeading({
+  eyebrow,
+  title,
+  description,
+  action,
+  center,
+}: {
+  eyebrow: string;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  center?: boolean;
+}) {
+  return (
+    <div className={`flex flex-col gap-3 ${center ? "items-center text-center" : "md:flex-row md:items-end md:justify-between"}`}>
+      <div className={`space-y-2 ${center ? "max-w-xl" : ""}`}>
+        <p className="eyebrow">{eyebrow}</p>
+        <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-fg">{title}</h2>
+        {description && <p className="text-sm text-fg-muted leading-relaxed">{description}</p>}
+      </div>
+      {action}
     </div>
   );
 }

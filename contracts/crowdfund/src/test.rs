@@ -1,164 +1,347 @@
 #![cfg(test)]
+extern crate std;
 
 use super::*;
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
-    token::{StellarAssetClient, Client as TokenClient},
-    Address, Env, String,
+    token::{self, StellarAssetClient},
+    Address, Env,
 };
 
-#[test]
-fn test_create_donate_withdraw_flow() {
+const NOW: u64 = 1_000_000;
+const GOAL: i128 = 1_000_000_000; // 100 XLM in stroops
+const DAY: u64 = 86_400;
+
+struct Ctx<'a> {
+    env: Env,
+    contract_id: Address,
+    client: CrowdfundClient<'a>,
+    token: token::Client<'a>,
+    mint: StellarAssetClient<'a>,
+}
+
+fn setup() -> Ctx<'static> {
     let env = Env::default();
     env.mock_all_auths();
+    env.ledger().with_mut(|l| l.timestamp = NOW);
 
-    let admin = Address::generate(&env);
-    let creator = Address::generate(&env);
-    let contributor = Address::generate(&env);
+    let token_address = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
+    let contract_id = env.register(Crowdfund, ());
 
-    // Create mock SAC token
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-    let token_client = TokenClient::new(&env, &token_address);
-    let token_admin_client = StellarAssetClient::new(&env, &token_address);
+    let token = token::Client::new(&env, &token_address);
+    let mint = StellarAssetClient::new(&env, &token_address);
+    let client = CrowdfundClient::new(&env, &contract_id);
+    client.initialize(&token_address);
 
-    // Mint token balance to contributor
-    token_admin_client.mint(&contributor, &1000);
+    Ctx {
+        env,
+        contract_id,
+        client,
+        token,
+        mint,
+    }
+}
 
-    // Register contract
-    let contract_id = env.register(CrowdFundXContract, ());
-    let client = CrowdFundXContractClient::new(&env, &contract_id);
+fn set_time(ctx: &Ctx, timestamp: u64) {
+    ctx.env.ledger().with_mut(|l| l.timestamp = timestamp);
+}
 
-    // Initialize
-    client.initialize(&admin, &token_address);
+// ---------- initialize ----------
 
-    // Create campaign: Goal 500 XLM, deadline in 100 seconds
-    let deadline = env.ledger().timestamp() + 100;
-    let title = String::from_str(&env, "Build Next-Gen DApp on Stellar");
-    let campaign_id = client.create_campaign(&creator, &title, &500i128, &deadline);
-
-    assert_eq!(campaign_id, 1);
-    assert_eq!(client.get_campaign_count(), 1);
-
-    // Donate 600 XLM
-    client.donate(&contributor, &campaign_id, &600i128);
-
-    let campaign = client.get_campaign(&campaign_id);
-    assert_eq!(campaign.total_raised, 600i128);
-    assert_eq!(client.get_donation(&contributor, &campaign_id), 600i128);
-    assert_eq!(token_client.balance(&contract_id), 600i128);
-
-    // Creator withdraws
-    client.withdraw(&creator, &campaign_id);
-
-    assert_eq!(token_client.balance(&creator), 600i128);
-    assert_eq!(token_client.balance(&contract_id), 0i128);
-    assert!(client.get_campaign(&campaign_id).withdrawn);
+#[test]
+fn initialize_only_once() {
+    let ctx = setup();
+    let other = ctx
+        .env
+        .register_stellar_asset_contract_v2(Address::generate(&ctx.env))
+        .address();
+    assert_eq!(
+        ctx.client.try_initialize(&other),
+        Err(Ok(Error::AlreadyInitialized))
+    );
 }
 
 #[test]
-fn test_refund_flow() {
+fn calls_before_initialize_fail() {
     let env = Env::default();
     env.mock_all_auths();
+    let contract_id = env.register(Crowdfund, ());
+    let client = CrowdfundClient::new(&env, &contract_id);
 
-    let admin = Address::generate(&env);
     let creator = Address::generate(&env);
-    let contributor = Address::generate(&env);
+    let donor = Address::generate(&env);
+    let id = client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    assert_eq!(
+        client.try_donate(&donor, &id, &100),
+        Err(Ok(Error::NotInitialized))
+    );
+}
 
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-    let token_client = TokenClient::new(&env, &token_address);
-    let token_admin_client = StellarAssetClient::new(&env, &token_address);
+// ---------- create_campaign ----------
 
-    token_admin_client.mint(&contributor, &1000);
+#[test]
+fn create_campaign_validates_inputs() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
 
-    let contract_id = env.register(CrowdFundXContract, ());
-    let client = CrowdFundXContractClient::new(&env, &contract_id);
-
-    client.initialize(&admin, &token_address);
-
-    // Deadline 50 seconds from now, Goal 1000
-    let deadline = env.ledger().timestamp() + 50;
-    let title = String::from_str(&env, "Failing Campaign Demo");
-    let campaign_id = client.create_campaign(&creator, &title, &1000i128, &deadline);
-
-    // Donate 300 (Under goal)
-    client.donate(&contributor, &campaign_id, &300i128);
-    assert_eq!(token_client.balance(&contributor), 700i128);
-
-    // Fast-forward past deadline
-    env.ledger().set_timestamp(deadline + 10);
-
-    // Claim refund
-    client.claim_refund(&contributor, &campaign_id);
-
-    assert_eq!(token_client.balance(&contributor), 1000i128);
-    assert_eq!(client.get_donation(&contributor, &campaign_id), 0i128);
+    assert_eq!(
+        ctx.client.try_create_campaign(&creator, &0, &(NOW + DAY)),
+        Err(Ok(Error::InvalidGoal))
+    );
+    assert_eq!(
+        ctx.client.try_create_campaign(&creator, &GOAL, &NOW),
+        Err(Ok(Error::InvalidDeadline))
+    );
 }
 
 #[test]
-fn test_multiple_contributors_flow() {
-    let env = Env::default();
-    env.mock_all_auths();
+fn create_campaign_assigns_sequential_ids_and_state() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
 
-    let admin = Address::generate(&env);
-    let creator = Address::generate(&env);
-    let contributor1 = Address::generate(&env);
-    let contributor2 = Address::generate(&env);
+    let id1 = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    let id2 = ctx.client.create_campaign(&creator, &(GOAL * 2), &(NOW + DAY));
+    assert_eq!((id1, id2), (1, 2));
 
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-    let token_client = TokenClient::new(&env, &token_address);
-    let token_admin_client = StellarAssetClient::new(&env, &token_address);
+    let campaign = ctx.client.get_campaign(&id1).unwrap();
+    assert_eq!(campaign.creator, creator);
+    assert_eq!(campaign.goal, GOAL);
+    assert_eq!(campaign.deadline, NOW + DAY);
+    assert_eq!(campaign.raised, 0);
+    assert!(!campaign.withdrawn);
 
-    token_admin_client.mint(&contributor1, &500);
-    token_admin_client.mint(&contributor2, &700);
+    assert_eq!(ctx.client.get_campaign(&999), None);
+}
 
-    let contract_id = env.register(CrowdFundXContract, ());
-    let client = CrowdFundXContractClient::new(&env, &contract_id);
+// ---------- donate ----------
 
-    client.initialize(&admin, &token_address);
+#[test]
+fn donate_moves_funds_into_escrow() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &500);
 
-    let deadline = env.ledger().timestamp() + 200;
-    let title = String::from_str(&env, "Community Open Source Grant");
-    let campaign_id = client.create_campaign(&creator, &title, &1000i128, &deadline);
+    ctx.client.donate(&donor, &id, &300);
 
-    client.donate(&contributor1, &campaign_id, &400i128);
-    client.donate(&contributor2, &campaign_id, &600i128);
+    assert_eq!(ctx.token.balance(&donor), 200);
+    assert_eq!(ctx.token.balance(&ctx.contract_id), 300);
+    let campaign = ctx.client.get_campaign(&id).unwrap();
+    assert_eq!(campaign.raised, 300);
+    assert_eq!(ctx.client.get_donation(&donor, &id), 300);
 
-    let campaign = client.get_campaign(&campaign_id);
-    assert_eq!(campaign.total_raised, 1000i128);
-    assert_eq!(token_client.balance(&contract_id), 1000i128);
-
-    client.withdraw(&creator, &campaign_id);
-    assert_eq!(token_client.balance(&creator), 1000i128);
+    // second donation accumulates
+    ctx.client.donate(&donor, &id, &100);
+    assert_eq!(ctx.token.balance(&ctx.contract_id), 400);
+    assert_eq!(ctx.client.get_donation(&donor, &id), 400);
 }
 
 #[test]
-#[should_panic(expected = "Amount must be positive")]
-fn test_zero_donation_panics() {
+fn donate_rejects_invalid_input() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &500);
+
+    assert_eq!(
+        ctx.client.try_donate(&donor, &id, &0),
+        Err(Ok(Error::InvalidAmount))
+    );
+    assert_eq!(
+        ctx.client.try_donate(&donor, &id, &-5),
+        Err(Ok(Error::InvalidAmount))
+    );
+    assert_eq!(
+        ctx.client.try_donate(&donor, &42, &100),
+        Err(Ok(Error::CampaignNotFound))
+    );
+}
+
+#[test]
+fn donate_rejects_after_deadline() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &500);
+
+    set_time(&ctx, NOW + DAY);
+    assert_eq!(
+        ctx.client.try_donate(&donor, &id, &100),
+        Err(Ok(Error::DeadlinePassed))
+    );
+}
+
+#[test]
+fn donate_rejects_withdrawn_campaign() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &(GOAL * 2));
+
+    ctx.client.donate(&donor, &id, &GOAL);
+    ctx.client.withdraw(&creator, &id);
+
+    assert_eq!(
+        ctx.client.try_donate(&donor, &id, &100),
+        Err(Ok(Error::AlreadyWithdrawn))
+    );
+}
+
+// ---------- withdraw ----------
+
+#[test]
+fn withdraw_pays_creator_once_goal_reached() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &GOAL);
+
+    ctx.client.donate(&donor, &id, &GOAL);
+    ctx.client.withdraw(&creator, &id);
+
+    assert_eq!(ctx.token.balance(&creator), GOAL);
+    assert_eq!(ctx.token.balance(&ctx.contract_id), 0);
+    assert!(ctx.client.get_campaign(&id).unwrap().withdrawn);
+
+    assert_eq!(
+        ctx.client.try_withdraw(&creator, &id),
+        Err(Ok(Error::AlreadyWithdrawn))
+    );
+}
+
+#[test]
+fn withdraw_enforces_rules() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let stranger = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &GOAL);
+
+    // below goal
+    ctx.client.donate(&donor, &id, &(GOAL / 2));
+    assert_eq!(
+        ctx.client.try_withdraw(&creator, &id),
+        Err(Ok(Error::GoalNotReached))
+    );
+
+    // wrong caller
+    ctx.client.donate(&donor, &id, &(GOAL / 2));
+    assert_eq!(
+        ctx.client.try_withdraw(&stranger, &id),
+        Err(Ok(Error::NotCreator))
+    );
+
+    // missing campaign
+    assert_eq!(
+        ctx.client.try_withdraw(&creator, &42),
+        Err(Ok(Error::CampaignNotFound))
+    );
+}
+
+// ---------- claim_refund ----------
+
+#[test]
+fn refund_returns_full_contribution_after_failed_campaign() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &400);
+
+    ctx.client.donate(&donor, &id, &300);
+    assert_eq!(ctx.token.balance(&donor), 100);
+
+    // refund blocked while campaign is active
+    assert_eq!(
+        ctx.client.try_claim_refund(&donor, &id),
+        Err(Ok(Error::CampaignStillActive))
+    );
+
+    set_time(&ctx, NOW + DAY + 1);
+    ctx.client.claim_refund(&donor, &id);
+
+    assert_eq!(ctx.token.balance(&donor), 400);
+    assert_eq!(ctx.token.balance(&ctx.contract_id), 0);
+    assert_eq!(ctx.client.get_donation(&donor, &id), 0);
+
+    // second claim finds no remaining donation
+    assert_eq!(
+        ctx.client.try_claim_refund(&donor, &id),
+        Err(Ok(Error::NoDonation))
+    );
+}
+
+#[test]
+fn refund_rules() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &GOAL);
+    ctx.client.donate(&donor, &id, &GOAL);
+
+    set_time(&ctx, NOW + DAY + 1);
+
+    // successful campaign cannot be refunded
+    assert_eq!(
+        ctx.client.try_claim_refund(&donor, &id),
+        Err(Ok(Error::GoalReached))
+    );
+
+    // non-donor has nothing to claim on a failed campaign
+    let id2 = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY * 2));
+    set_time(&ctx, NOW + DAY * 2 + 1);
+    assert_eq!(
+        ctx.client.try_claim_refund(&donor, &id2),
+        Err(Ok(Error::NoDonation))
+    );
+}
+
+#[test]
+fn multiple_donors_are_each_refunded() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor_a = Address::generate(&ctx.env);
+    let donor_b = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor_a, &250);
+    ctx.mint.mint(&donor_b, &400);
+
+    ctx.client.donate(&donor_a, &id, &250);
+    ctx.client.donate(&donor_b, &id, &400);
+    assert_eq!(ctx.token.balance(&ctx.contract_id), 650);
+
+    set_time(&ctx, NOW + DAY + 1);
+    ctx.client.claim_refund(&donor_a, &id);
+    ctx.client.claim_refund(&donor_b, &id);
+
+    assert_eq!(ctx.token.balance(&donor_a), 250);
+    assert_eq!(ctx.token.balance(&donor_b), 400);
+    assert_eq!(ctx.token.balance(&ctx.contract_id), 0);
+}
+
+// ---------- authorization ----------
+
+#[test]
+fn mutating_calls_require_signature_authorization() {
     let env = Env::default();
-    env.mock_all_auths();
+    env.ledger().with_mut(|l| l.timestamp = NOW);
+    let token_address = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
+    let contract_id = env.register(Crowdfund, ());
+    let client = CrowdfundClient::new(&env, &contract_id);
+    client.initialize(&token_address);
 
-    let admin = Address::generate(&env);
     let creator = Address::generate(&env);
-    let contributor = Address::generate(&env);
-
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_address = token_contract.address();
-
-    let contract_id = env.register(CrowdFundXContract, ());
-    let client = CrowdFundXContractClient::new(&env, &contract_id);
-
-    client.initialize(&admin, &token_address);
-
-    let deadline = env.ledger().timestamp() + 100;
-    let title = String::from_str(&env, "Test Zero Donation");
-    let campaign_id = client.create_campaign(&creator, &title, &500i128, &deadline);
-
-    client.donate(&contributor, &campaign_id, &0i128);
+    // no mock_all_auths: require_auth must reject unsigned calls
+    assert!(client.try_create_campaign(&creator, &GOAL, &(NOW + DAY)).is_err());
 }

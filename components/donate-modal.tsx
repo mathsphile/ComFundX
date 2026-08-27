@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { X, Wallet, Sparkles, ShieldCheck, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
+import { Wallet, ShieldCheck, CheckCircle2, Loader2 } from "lucide-react";
 import { Address, nativeToScVal } from "@stellar/stellar-sdk";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 import { useWalletStore } from "@/lib/store/walletStore";
 import { buildContractCallXdr, submitSignedTransaction } from "@/lib/stellar/soroban";
 import { signTransactionXdr } from "@/lib/stellar/wallet";
-import { toast } from "sonner";
-import confetti from "canvas-confetti";
+import { Modal } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { cn, formatXlm } from "@/lib/utils";
 
 interface DonateModalProps {
   campaign: {
@@ -16,6 +19,7 @@ interface DonateModalProps {
     title: string;
     fundingGoal: number;
     raisedAmount: number;
+    onChainId?: number | null;
     rewardTiers?: any[];
   };
   isOpen: boolean;
@@ -23,16 +27,16 @@ interface DonateModalProps {
   onSuccess: () => void;
 }
 
+type Step = "SELECT" | "SIGNING" | "CONFIRMING" | "SUCCESS";
+
+const PRESETS = ["10", "50", "100", "500"];
+
 export function DonateModal({ campaign, isOpen, onClose, onSuccess }: DonateModalProps) {
   const { isConnected, publicKey, connect } = useWalletStore();
   const [amount, setAmount] = useState<string>("50");
   const [selectedReward, setSelectedReward] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [step, setStep] = useState<"SELECT" | "SIGNING" | "CONFIRMING" | "SUCCESS">("SELECT");
-
-  if (!isOpen) return null;
-
-  const presets = ["10", "50", "100", "500"];
+  const [step, setStep] = useState<Step>("SELECT");
 
   const handleDonate = async () => {
     if (!isConnected || !publicKey) {
@@ -51,36 +55,43 @@ export function DonateModal({ campaign, isOpen, onClose, onSuccess }: DonateModa
     setStep("SIGNING");
 
     try {
-      // Step 1: Assemble Soroban contract call XDR with explicit ScVal types (Address, u64 campaign_id, i128 amount)
       const stroops = BigInt(Math.round(numAmount * 10_000_000));
       const xdr = await buildContractCallXdr({
         publicKey,
         method: "donate",
         args: [
           new Address(publicKey).toScVal(),
-          nativeToScVal(1n, { type: "u64" }),
+          nativeToScVal(BigInt(campaign.onChainId ?? 1), { type: "u64" }),
           nativeToScVal(stroops, { type: "i128" }),
         ],
       });
 
-      // Step 2: Prompt Freighter wallet user to sign transaction
       let signedXdr: string | null = null;
       try {
         signedXdr = await signTransactionXdr(xdr, publicKey);
-      } catch (err) {
+      } catch {
         console.warn("Wallet signing fallback for local dev");
       }
 
       setStep("CONFIRMING");
 
-      // Step 3: Record transaction in Next.js backend & trigger on-chain update
+      // Submit the signed transaction to Stellar and record the real hash.
+      let txHash: string | undefined;
+      if (signedXdr) {
+        const submission = await submitSignedTransaction(signedXdr);
+        if (submission.status !== "SUCCESS") {
+          throw new Error(`Donation transaction ${submission.status.toLowerCase()} on Stellar`);
+        }
+        txHash = submission.hash;
+      }
+
       const res = await fetch(`/api/campaigns/${campaign.id}/donate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: numAmount,
           contributorAddress: publicKey,
-          txHash: signedXdr ? `0x${Math.random().toString(16).substring(2)}${Date.now().toString(16)}` : undefined,
+          txHash,
         }),
       });
 
@@ -90,11 +101,7 @@ export function DonateModal({ campaign, isOpen, onClose, onSuccess }: DonateModa
       }
 
       setStep("SUCCESS");
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 
       toast.success("Donation Successful!", {
         description: `Successfully donated ${numAmount} XLM to "${campaign.title}" via Soroban escrow contract!`,
@@ -115,55 +122,46 @@ export function DonateModal({ campaign, isOpen, onClose, onSuccess }: DonateModa
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-lg glass-panel rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 bg-white/95 overflow-hidden">
-        {/* Glowing aura background */}
-        <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full bg-[#FF5A00]/10 blur-3xl pointer-events-none"></div>
-        <div className="absolute -bottom-20 -left-20 w-60 h-60 rounded-full bg-[#0284C7]/10 blur-3xl pointer-events-none"></div>
-
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
+    <Modal open={isOpen} onClose={onClose} labelledBy="donate-title">
+      <div className="p-6 sm:p-8">
         {/* Header */}
-        <div className="mb-6 space-y-1">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#0284C7]">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            Soroban On-Chain Escrow
-          </div>
-          <h3 className="text-xl font-extrabold text-slate-900">Back this Campaign</h3>
-          <p className="text-xs text-slate-500 line-clamp-1 font-medium">{campaign.title}</p>
+        <div className="mb-6 space-y-1.5 pr-8">
+          <p className="flex items-center gap-1.5 text-[11px] font-medium text-success">
+            <ShieldCheck className="w-3.5 h-3.5" /> Soroban On-Chain Escrow
+          </p>
+          <h3 id="donate-title" className="font-display text-xl font-semibold text-fg">
+            Back this Campaign
+          </h3>
+          <p className="text-[12px] text-fg-faint line-clamp-1">{campaign.title}</p>
         </div>
 
         {step === "SELECT" && (
           <div className="space-y-6">
-            {/* Amount Presets */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700">Select Donation Amount (XLM)</label>
-              <div className="grid grid-cols-4 gap-2.5">
-                {presets.map((p) => (
+            {/* Presets */}
+            <div className="space-y-2.5">
+              <label className="text-[13px] font-medium text-fg-muted">Donation amount</label>
+              <div className="grid grid-cols-4 gap-2">
+                {PRESETS.map((p) => (
                   <button
                     key={p}
+                    type="button"
                     onClick={() => setAmount(p)}
-                    className={`py-2.5 rounded-xl font-extrabold text-sm border transition-all ${
+                    className={cn(
+                      "rounded-[10px] border py-2.5 text-[13px] font-semibold transition-all tabular",
                       amount === p
-                        ? "bg-[#FF5A00] text-white border-[#FF5A00] shadow-md shadow-[#FF5A00]/25"
-                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                    }`}
+                        ? "bg-accent text-fg-on-accent border-transparent"
+                        : "bg-surface text-fg-muted border-line-strong hover:text-fg hover:border-line-bright"
+                    )}
                   >
-                    {p} XLM
+                    {p}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Custom Amount Input */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700">Or Enter Custom Amount</label>
+            {/* Custom amount */}
+            <div className="space-y-2.5">
+              <label className="text-[13px] font-medium text-fg-muted">Or custom amount</label>
               <div className="relative">
                 <input
                   type="number"
@@ -172,95 +170,91 @@ export function DonateModal({ campaign, isOpen, onClose, onSuccess }: DonateModa
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="e.g. 250"
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 font-extrabold placeholder-slate-400 focus:outline-none focus:border-[#FF5A00] transition-colors"
+                  className="field px-4 py-3 pr-16 text-[15px] font-semibold tabular"
                 />
-                <span className="absolute right-4 top-3.5 text-xs font-bold text-[#FF5A00]">XLM</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[12px] font-semibold text-accent">XLM</span>
               </div>
             </div>
 
-            {/* Reward Tiers Selection if available */}
+            {/* Reward tiers */}
             {campaign.rewardTiers && campaign.rewardTiers.length > 0 && (
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700">Select Reward Tier (Optional)</label>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
+              <div className="space-y-2.5">
+                <label className="text-[13px] font-medium text-fg-muted">Reward tier (optional)</label>
+                <div className="space-y-2 max-h-44 overflow-y-auto pr-1" data-lenis-prevent>
                   {campaign.rewardTiers.map((tier: any) => (
-                    <div
+                    <button
+                      type="button"
                       key={tier.id}
                       onClick={() => {
                         setSelectedReward(tier.id);
                         setAmount(tier.minAmount.toString());
                       }}
-                      className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                      className={cn(
+                        "w-full text-left rounded-[11px] border p-3.5 transition-all",
                         selectedReward === tier.id
-                          ? "bg-amber-50 border-[#FF5A00] text-slate-900"
-                          : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700"
-                      }`}
+                          ? "border-accent bg-accent/8"
+                          : "border-line bg-surface hover:border-line-strong"
+                      )}
                     >
-                      <div className="flex justify-between font-bold text-slate-900 mb-1">
-                        <span>{tier.title}</span>
-                        <span className="text-[#FF5A00]">{tier.minAmount} XLM+</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500">{tier.description}</p>
-                    </div>
+                      <span className="flex items-center justify-between text-[13px] font-semibold text-fg">
+                        {tier.title}
+                        <span className="text-accent tabular">{formatXlm(tier.minAmount)} XLM+</span>
+                      </span>
+                      <span className="mt-1 block text-[12px] text-fg-muted leading-relaxed">{tier.description}</span>
+                    </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Refund Guarantee Box */}
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 space-y-1">
-              <div className="flex items-center gap-2 font-bold text-emerald-900">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                100% Soroban Smart Contract Guarantee
-              </div>
-              <p className="text-[11px] text-emerald-700 leading-relaxed font-medium">
-                If the campaign fails to reach its funding goal before the deadline, you can claim a 100% refund of your XLM directly from the contract.
+            {/* Guarantee */}
+            <div className="rounded-[11px] border border-success/25 bg-success/8 p-4 space-y-1">
+              <p className="flex items-center gap-2 text-[13px] font-semibold text-success">
+                <CheckCircle2 className="w-4 h-4" /> 100% smart-contract guarantee
+              </p>
+              <p className="text-[12px] text-fg-muted leading-relaxed">
+                If this campaign misses its goal before the deadline, you can claim a full refund directly from the contract.
               </p>
             </div>
 
-            {/* Donate Action Button */}
-            <button
-              onClick={handleDonate}
-              disabled={isProcessing}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#FF5A00] to-[#FF8A00] hover:from-[#FF7A00] text-white font-extrabold text-sm shadow-xl shadow-[#FF5A00]/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
-            >
-              <Wallet className="w-4 h-4" />
-              Confirm {amount} XLM Donation
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            <Button size="lg" onClick={handleDonate} disabled={isProcessing} icon={<Wallet className="w-[18px] h-[18px]" />} className="w-full">
+              Confirm {amount} XLM
+            </Button>
           </div>
         )}
 
         {(step === "SIGNING" || step === "CONFIRMING") && (
-          <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="w-16 h-16 rounded-2xl gradient-bg-stellar p-1 flex items-center justify-center animate-spin">
-              <div className="w-full h-full bg-white rounded-xl flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-[#FF5A00] animate-spin" />
-              </div>
+          <div className="py-14 flex flex-col items-center text-center space-y-5">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-line-strong bg-surface-2">
+              <Loader2 className="w-7 h-7 text-accent animate-spin" />
             </div>
-            <h4 className="text-lg font-bold text-slate-900">
-              {step === "SIGNING" ? "Awaiting Wallet Signature" : "Executing Soroban On-Chain Contract..."}
-            </h4>
-            <p className="text-xs text-slate-500 max-w-xs">
-              {step === "SIGNING"
-                ? "Please confirm the transaction in your Freighter Stellar extension."
-                : "Locking XLM into the crowdfunding escrow smart contract on Stellar Testnet."}
-            </p>
+            <div className="space-y-1.5 max-w-xs">
+              <h4 className="font-display text-lg font-semibold text-fg">
+                {step === "SIGNING" ? "Awaiting wallet signature" : "Executing Soroban contract…"}
+              </h4>
+              <p className="text-[12px] text-fg-muted leading-relaxed">
+                {step === "SIGNING"
+                  ? "Confirm the transaction in your Freighter extension."
+                  : "Locking XLM into the escrow contract on Stellar Testnet."}
+              </p>
+            </div>
           </div>
         )}
 
         {step === "SUCCESS" && (
-          <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-600">
-              <CheckCircle2 className="w-10 h-10 animate-bounce" />
+          <div className="py-14 flex flex-col items-center text-center space-y-5">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-success/30 bg-success/15">
+              <CheckCircle2 className="w-8 h-8 text-success animate-bounce" />
             </div>
-            <h4 className="text-xl font-extrabold text-slate-900">Contribution Confirmed!</h4>
-            <p className="text-xs text-slate-600">
-              Thank you! You donated <span className="font-bold text-[#FF5A00]">{amount} XLM</span> to {campaign.title}.
-            </p>
+            <div className="space-y-1.5">
+              <h4 className="font-display text-xl font-semibold text-fg">Contribution Confirmed!</h4>
+              <p className="text-[13px] text-fg-muted">
+                You donated <span className="font-semibold text-accent tabular">{amount} XLM</span> to {campaign.title}.
+              </p>
+            </div>
           </div>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }

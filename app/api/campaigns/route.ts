@@ -47,7 +47,7 @@ export async function GET(req: Request) {
           select: { name: true, avatar: true, walletAddress: true }
         },
         donations: {
-          select: { id: true, amount: true, contributorAddress: true }
+          select: { id: true, amount: true, contributorAddress: true, createdAt: true }
         },
         _count: {
           select: { donations: true, bookmarks: true }

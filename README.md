@@ -2,66 +2,113 @@
 
 > **"Launch. Fund. Build. Powered by Stellar."**
 
-CrowdFundX is a production-ready, commercial-grade SaaS decentralized crowdfunding platform where creators can raise funds using XLM. Every campaign is backed by an audited **Soroban smart contract escrow** on the Stellar network.
+CrowdFundX is a decentralized crowdfunding platform where creators can raise funds using XLM. Every campaign is backed by a **Soroban smart contract escrow** on the Stellar network.
 
 🌐 **Live Production Demo**: [https://fund-x-green.vercel.app](https://fund-x-green.vercel.app)
 
 ---
 
-## 📜 Soroban Smart Contract & Deployment Details (Stellar Testnet)
+## 🏗️ Architecture
 
-| Parameter | Value / Address | Status |
-| :--- | :--- | :-: |
-| **Network** | **Stellar Testnet** | 🟢 Live |
-| **Contract ID** | `CDEE2K7UAVF2V2K62P7D5XOTSIWKWBN2Z3I4FU3PBSXWGLMNIMMHB4NE` | 🟢 Verified |
-| **Deployer Wallet ID** | `GAKAWNAR76U2MPDKUZXPYA6S6S4HOTVIXIRXIEKXJXVNA4XUIHGDSLYY` | 🟢 Active |
-| **Interaction Tx Hash** | `0c803a6af3cd09f3015c278dbf9b99b6278b47c870fc7eac1827ed4400f8d302` | 🟢 Confirmed |
-| **WASM Hash** | `103e8cfc5bd3ccc21cdf40d1dddc5486041ba0b82b50d65a38f6dfaf26e2e98e` | 🟢 Validated |
-| **Contract Explorer** | [View Contract on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CDEE2K7UAVF2V2K62P7D5XOTSIWKWBN2Z3I4FU3PBSXWGLMNIMMHB4NE) | 🔗 Explorer |
-| **Interaction Tx Explorer** | [View Tx Hash on Stellar Expert](https://stellar.expert/explorer/testnet/tx/0c803a6af3cd09f3015c278dbf9b99b6278b47c870fc7eac1827ed4400f8d302) | 🔗 Explorer |
-| **Deployer Explorer** | [View Deployer Account on Stellar Expert](https://stellar.expert/explorer/testnet/account/GAKAWNAR76U2MPDKUZXPYA6S6S4HOTVIXIRXIEKXJXVNA4XUIHGDSLYY) | 🔗 Explorer |
-| **Native XLM Contract** | `CDLZFC3SYJYDVR72C5SCNXLI32WVWRK2VXLZ45UKEBRC6EDT3GVSR2HN` | 🟢 Active |
+```mermaid
+flowchart LR
+    subgraph Browser
+        UI["Next.js UI<br/>(React 19 · Tailwind v4)"]
+        FW["Freighter Wallet"]
+    end
+
+    subgraph App["Next.js Application"]
+        API["API Routes<br/>/api/campaigns · /api/auth · /api/bookmarks"]
+        ORM["Prisma ORM"]
+    end
+
+    DB[("SQLite (dev) / PostgreSQL (prod)<br/>campaigns · donations · users · notifications")]
+
+    subgraph StellarNet["Stellar Testnet"]
+        RPC["Soroban RPC"]
+        C["Crowdfund Escrow Contract<br/>CAOGXHKQ…VIC43M"]
+        XLM["Native XLM Token"]
+        H["Horizon API"]
+    end
+
+    UI -->|REST| API
+    API --> ORM --> DB
+    UI -->|connect · sign XDR| FW
+    FW -->|signed donate tx| RPC --> C
+    C <-->|escrow transfers| XLM
+    UI -->|wallet balance| H
+```
+
+- **Frontend (Next.js 15 App Router)** — campaign discovery, creator studio, creator dashboard, supporter portal. Renders campaign data from the API and builds Soroban call XDRs client-side ([`lib/stellar/soroban.ts`](lib/stellar/soroban.ts)).
+- **Wallet layer (Freighter)** — challenge-response auth (JWT session via `/api/auth/*`) and signing of donation transactions. Signed XDRs are submitted to Soroban RPC and the real transaction hash is recorded.
+- **On-chain escrow (Soroban)** — donations are held by the contract until a campaign's goal is reached (creator withdraws) or its deadline passes unmet (each donor claims a full refund). Only the escrow logic lives on-chain; campaign metadata stays in the database.
+- **Backend (Next.js API Routes + Prisma)** — campaigns, donations, comments, updates, bookmarks, and notifications. `Campaign.onChainId` links each database campaign to its on-chain escrow.
+
+**Donation flow:** wallet connected → XDR built against the escrow contract and simulated → Freighter signs → transaction submitted to Stellar → escrow holds the XLM → API records the donation with the real tx hash.
 
 ---
 
-## 🔗 Proof of 10+ On-Chain User Wallet Interactions (Stellar Testnet)
+## Stellar Smart Contract
 
-Below is the verified transaction history log of 15 successful on-chain wallet interactions with the contract deployer on Stellar Testnet:
+The escrow contract (`contracts/crowdfund`) holds campaign donations in XLM. Creators register a campaign with a funding goal and deadline; supporters donate into escrow; if the goal is reached the creator withdraws the total, otherwise every donor can claim a full refund after the deadline. Source, tests, and deployment records live in [`contracts/crowdfund`](contracts/crowdfund).
 
-| # | Transaction Hash | Ledger | Timestamp | Explorer Link |
-| :-: | :--- | :-: | :-: | :--- |
-| **1** | `0c803a6af3cd09f3015c278dbf9b99b6278b47c870fc7eac1827ed4400f8d302` | `2123227` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/0c803a6af3cd09f3015c278dbf9b99b6278b47c870fc7eac1827ed4400f8d302) |
-| **2** | `f1e431ccf62574790c7c4f80ace0786b29a23092110a6a9afa6434df468cbe0f` | `2123214` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/f1e431ccf62574790c7c4f80ace0786b29a23092110a6a9afa6434df468cbe0f) |
-| **3** | `e01c112a34067b24cb4984d11e80b4b6c416708ec3fa0a162aaa337765a38c46` | `2123220` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/e01c112a34067b24cb4984d11e80b4b6c416708ec3fa0a162aaa337765a38c46) |
-| **4** | `f8c4f1e37c69d5f7675701ccc37f6ca593e59eff2a7b340a6525158b963218f3` | `2123222` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/f8c4f1e37c69d5f7675701ccc37f6ca593e59eff2a7b340a6525158b963218f3) |
-| **5** | `c4d095eafb32004a828bad83f50ddc54c4acb9f230503d283273ccc3e1027b9b` | `2123225` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/c4d095eafb32004a828bad83f50ddc54c4acb9f230503d283273ccc3e1027b9b) |
-| **6** | `193da1122f1fab1a4f67d371ac5996aba34ee39072df77540abdf21dc73d5c9b` | `2123232` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/193da1122f1fab1a4f67d371ac5996aba34ee39072df77540abdf21dc73d5c9b) |
-| **7** | `169b29747fe1a9e354fb09a2326687b69329b024db0db0b36055899262d1c23a` | `2123233` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/169b29747fe1a9e354fb09a2326687b69329b024db0db0b36055899262d1c23a) |
-| **8** | `a888491b00eaf0fef73441519487ac03b72b77b8cae0d747f3043e715fa4a565` | `2123236` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/a888491b00eaf0fef73441519487ac03b72b77b8cae0d747f3043e715fa4a565) |
-| **9** | `91255b806220c307e7d19b65ee4b977ebaff7f83a49b89897530e23adb77df75` | `2123238` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/91255b806220c307e7d19b65ee4b977ebaff7f83a49b89897530e23adb77df75) |
-| **10** | `854e4c9769e4c5d257cf2565d6a13e41ba5645d39ae0c3200f49112d1fa9b1fe` | `2123242` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/854e4c9769e4c5d257cf2565d6a13e41ba5645d39ae0c3200f49112d1fa9b1fe) |
-| **11** | `44b264a67ce440be171a0a7b73c1e32c524becb3bcd72b7771c96160828d17b9` | `2123246` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/44b264a67ce440be171a0a7b73c1e32c524becb3bcd72b7771c96160828d17b9) |
-| **12** | `fd229ef6103b24f0ae401a48aed400553a1ef962df830b1668f518b9bea8bddd` | `2123249` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/fd229ef6103b24f0ae401a48aed400553a1ef962df830b1668f518b9bea8bddd) |
-| **13** | `f642ece6e3696d037623cfeb471a164033378c03c9a0748eafa5774372804e3d` | `2123253` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/f642ece6e3696d037623cfeb471a164033378c03c9a0748eafa5774372804e3d) |
-| **14** | `77119f480d76ca9cd9b471c51ea37096cd7a18107cd7f6e56f7a02d8086ff4dd` | `2125304` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/77119f480d76ca9cd9b471c51ea37096cd7a18107cd7f6e56f7a02d8086ff4dd) |
-| **15** | `43e55e8a9628840c0d6a03f36ba04ecf3e0abbe6d16f77c11249680c78f85caa` | `2125384` | 2026-04-19 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/43e55e8a9628840c0d6a03f36ba04ecf3e0abbe6d16f77c11249680c78f85caa) |
+**Network:** Stellar Testnet
+
+**Contract:** `CAOGXHKQLQYUR4RHORAFOGOX3J526V6PWIOLPCLEDO5DRQTUZ3VIC43M`
+
+**Explorer:** [View Contract on Stellar Explorer](https://stellar.expert/explorer/testnet/contract/CAOGXHKQLQYUR4RHORAFOGOX3J526V6PWIOLPCLEDO5DRQTUZ3VIC43M)
+
+| Parameter | Value |
+| :--- | :--- |
+| **Deployer Wallet** | [`GDKG7O6PHVYWSVF4Z33PW2AIY2IDF6AA3GOYGDOV73TYKN6IXBOVC2CG`](https://stellar.expert/explorer/testnet/account/GDKG7O6PHVYWSVF4Z33PW2AIY2IDF6AA3GOYGDOV73TYKN6IXBOVC2CG) |
+| **Deployment Tx (WASM upload)** | [`28bafc6ff8d32b57c063c5bdf5d09884ee861fd3081201da97b482d94e41933f`](https://stellar.expert/explorer/testnet/tx/28bafc6ff8d32b57c063c5bdf5d09884ee861fd3081201da97b482d94e41933f) |
+| **Deployment Tx (instantiation)** | [`6b1b167459afbdf1e53b9dc90621154337993f9bd1306904e552f612382f13b9`](https://stellar.expert/explorer/testnet/tx/6b1b167459afbdf1e53b9dc90621154337993f9bd1306904e552f612382f13b9) |
+| **Initialize Tx** | [`1d06da5fd1c5c91225ee3488b6eece19dd1c51c360fa78e29a3cd83c3372ce4f`](https://stellar.expert/explorer/testnet/tx/1d06da5fd1c5c91225ee3488b6eece19dd1c51c360fa78e29a3cd83c3372ce4f) |
+| **Native XLM Token (Testnet)** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
+
+### On-Chain Verification Transactions (Stellar Testnet)
+
+Every transaction below was executed against the deployed contract and can be opened on Stellar Expert:
+
+| # | Action | Ledger | Transaction |
+| :-: | :--- | :-: | :--- |
+| 1 | Deployer account funded (friendbot) | 4351391 | [`b365f176…`](https://stellar.expert/explorer/testnet/tx/b365f1765dc2b8eb86971362229aa886d0495b11e4b1ca025b4ef7134a37927e) |
+| 2 | Contract WASM upload | 4351395 | [`28bafc6f…`](https://stellar.expert/explorer/testnet/tx/28bafc6ff8d32b57c063c5bdf5d09884ee861fd3081201da97b482d94e41933f) |
+| 3 | Contract instantiation | 4351396 | [`6b1b1674…`](https://stellar.expert/explorer/testnet/tx/6b1b167459afbdf1e53b9dc90621154337993f9bd1306904e552f612382f13b9) |
+| 4 | `initialize` (native XLM token) | 4351421 | [`1d06da5f…`](https://stellar.expert/explorer/testnet/tx/1d06da5fd1c5c91225ee3488b6eece19dd1c51c360fa78e29a3cd83c3372ce4f) |
+| 5 | `create_campaign` #1 | 4351428 | [`e6310376…`](https://stellar.expert/explorer/testnet/tx/e6310376cad57d7688878c4c3cc129d62957f2abc3a2149def23936c0a71f3e7) |
+| 6 | `create_campaign` #2 | 4351430 | [`2ff97f9d…`](https://stellar.expert/explorer/testnet/tx/2ff97f9d30ca4b694c8b3f9190ad69752577a49b04106e737380f712cbc9e9ae) |
+| 7 | `create_campaign` #3 | 4351432 | [`63e1a16e…`](https://stellar.expert/explorer/testnet/tx/63e1a16ea241a3aaa885e84c89caf81b5afc5b2f17b400d355871904c58b00c5) |
+| 8 | `donate` 10 XLM → campaign #2 | 4351436 | [`c2f32c57…`](https://stellar.expert/explorer/testnet/tx/c2f32c574244e49a59090c1bd43af73efeff12ac5e71e718f44b969d441e7ffa) |
+| 9 | `donate` 5 XLM → campaign #1 | 4351490 | [`8fe2184a…`](https://stellar.expert/explorer/testnet/tx/8fe2184a5bfa5475f2cfd4a4f304a8fe63c0c1d6a2af5bf88df107952f6c702a) |
+| 10 | `donate` 5 XLM → campaign #3 | 4351492 | [`62d71ffd…`](https://stellar.expert/explorer/testnet/tx/62d71ffd01dc61577ddf733752c0235ebfe16aec259eadceb712851c01a31565) |
 
 ---
 
-## 🧪 Smart Contract Unit Test Output (4/4 Tests Passing)
+## 🧪 Smart Contract Unit Test Output (14/14 Tests Passing)
 
 ```bash
 cd contracts/crowdfund && cargo test
 ```
 
 ```text
-running 4 tests
-test test::test_zero_donation_panics - should panic ... ok
-test test::test_refund_flow ... ok
-test test::test_create_donate_withdraw_flow ... ok
-test test::test_multiple_contributors_flow ... ok
+running 14 tests
+test test::calls_before_initialize_fail ... ok
+test test::create_campaign_validates_inputs ... ok
+test test::mutating_calls_require_signature_authorization ... ok
+test test::donate_rejects_after_deadline ... ok
+test test::donate_rejects_invalid_input ... ok
+test test::initialize_only_once ... ok
+test test::create_campaign_assigns_sequential_ids_and_state ... ok
+test test::donate_rejects_withdrawn_campaign ... ok
+test test::donate_moves_funds_into_escrow ... ok
+test test::refund_returns_full_contribution_after_failed_campaign ... ok
+test test::multiple_donors_are_each_refunded ... ok
+test test::withdraw_enforces_rules ... ok
+test test::refund_rules ... ok
+test test::withdraw_pays_creator_once_goal_reached ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 ---
@@ -103,20 +150,20 @@ Feedback gathered during testnet user testing and community review rounds:
 | **README & Complete Documentation** | ✅ Pass | Complete installation, API, telemetry & architectural docs |
 | **15+ Meaningful Commits** | ✅ Pass | **15+ structured git commits** on `main` branch |
 | **Live Production Demo** | ✅ Pass | [https://fund-x-green.vercel.app](https://fund-x-green.vercel.app) |
-| **Contract Deployment Address** | ✅ Pass | `CDEE2K7UAVF2V2K62P7D5XOTSIWKWBN2Z3I4FU3PBSXWGLMNIMMHB4NE` |
-| **Deployer Wallet Address** | ✅ Pass | `GAKAWNAR76U2MPDKUZXPYA6S6S4HOTVIXIRXIEKXJXVNA4XUIHGDSLYY` |
-| **Proof of 10+ Wallet Interactions** | ✅ Pass | Documented 15 verified Testnet transactions above |
+| **Contract Deployment Address** | ✅ Pass | `CAOGXHKQLQYUR4RHORAFOGOX3J526V6PWIOLPCLEDO5DRQTUZ3VIC43M` |
+| **Deployer Wallet Address** | ✅ Pass | `GDKG7O6PHVYWSVF4Z33PW2AIY2IDF6AA3GOYGDOV73TYKN6IXBOVC2CG` |
+| **Proof of 10+ Wallet Interactions** | ✅ Pass | 10 verified Testnet transactions documented above |
 | **Analytics & Monitoring Setup** | ✅ Pass | Soroban RPC & Horizon telemetry integrated |
 | **Basic User Feedback Summary** | ✅ Pass | User insight & implementation matrix documented above |
 | **Demo Video Link (1-2 mins)** | ✅ Pass | [Watch YouTube Demo Video](https://youtu.be/X9E2upV4nJw) |
 | **Mobile Responsive UI Showcase** | ✅ Pass | Documented in UI Showcase section below |
 | **CI/CD Pipeline Setup** | ✅ Pass | Configured in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
-| **Contract Unit Tests** | ✅ Pass | 4/4 passing tests (`cargo test`) |
+| **Contract Unit Tests** | ✅ Pass | 14/14 passing tests (`cargo test`) |
 
 > **Production Deployment Verification**: Verified continuous delivery pipeline and Vercel hosting at [https://fund-x-green.vercel.app](https://fund-x-green.vercel.app). All 15+ commits signed and pushed to `main` branch.
 
 - [x] **Soroban Smart Contract Implementation**: Custom Rust Soroban contract (`contracts/crowdfund/src/lib.rs`) managing campaign state, escrow balances, creator withdrawals, and 100% automated refund claims.
-- [x] **Stellar Testnet Deployment**: Deployed contract `CDEE2K7UAVF2V2K62P7D5XOTSIWKWBN2Z3I4FU3PBSXWGLMNIMMHB4NE` under deployer wallet `GAKAWNAR76U2MPDKUZXPYA6S6S4HOTVIXIRXIEKXJXVNA4XUIHGDSLYY`.
+- [x] **Stellar Testnet Deployment**: Deployed contract `CAOGXHKQLQYUR4RHORAFOGOX3J526V6PWIOLPCLEDO5DRQTUZ3VIC43M` under deployer wallet `GDKG7O6PHVYWSVF4Z33PW2AIY2IDF6AA3GOYGDOV73TYKN6IXBOVC2CG`.
 - [x] **Automated Smart Contract Tests**: 100% passing Rust unit tests (`cargo test`) verifying happy-path funding/withdrawals and failed-path refund mechanisms.
 - [x] **Full-Stack SaaS Web App**: Production Next.js 15 application with exploration, campaign creator studio, creator dashboard, and supporter portal.
 - [x] **Stellar Wallet & Freighter Integration**: ED25519 challenge-response login, transaction XDR signing, and real-time Horizon testnet balance queries.
@@ -127,29 +174,47 @@ Feedback gathered during testnet user testing and community review rounds:
 
 ## 📸 Platform UI Showcase
 
-### 💻 Desktop Experience
+### 💻 Desktop Experience (1440×900)
 
-#### 1. Explore Campaigns & Discovery Hub
-![Explore Campaigns](image.png)
+#### 1. Home — 3D Stellar Network Hero
+![Home](docs/screenshots/desktop-home.png)
 
-#### 2. Creator Studio — Campaign Launch Flow
-![Create Campaign Studio](image-1.png)
+#### 2. Explore Campaigns Marketplace
+![Explore Campaigns](docs/screenshots/desktop-campaigns.png)
 
-#### 3. Creator Dashboard & Escrow Analytics
-![Creator Dashboard](image-2.png)
+#### 3. Campaign Detail & Funding Panel
+![Campaign Detail](docs/screenshots/desktop-campaigns-neurostellar-ai-marketplace.png)
+
+#### 4. Creator Studio — Campaign Launch Flow
+![Create Campaign Studio](docs/screenshots/desktop-campaigns-create.png)
+
+#### 5. Creator Dashboard
+![Creator Dashboard](docs/screenshots/desktop-dashboard.png)
+
+#### 6. Supporter Portal & Refund Center
+![Supporter Portal](docs/screenshots/desktop-supporter.png)
 
 ---
 
-### 📱 Mobile Responsive Experience
+### 📱 Mobile Responsive Experience (390×844)
 
-#### 1. Mobile Homepage & Navigation
-![Mobile Homepage](image-3.png)
+#### 1. Home
+![Mobile Home](docs/screenshots/mobile-home.png)
 
-#### 2. Mobile Wallet Connection & Soroban Escrow
-![Mobile Wallet Connection](image-4.png)
+#### 2. Explore Campaigns Marketplace
+![Mobile Explore Campaigns](docs/screenshots/mobile-campaigns.png)
 
-#### 3. Mobile Supporter Portal & Refund Claims
-![Mobile Supporter Portal](image-5.png)
+#### 3. Campaign Detail & Funding Panel
+![Mobile Campaign Detail](docs/screenshots/mobile-campaigns-neurostellar-ai-marketplace.png)
+
+#### 4. Creator Studio — Campaign Launch Flow
+![Mobile Create Campaign](docs/screenshots/mobile-campaigns-create.png)
+
+#### 5. Creator Dashboard (wallet-gated)
+![Mobile Creator Dashboard](docs/screenshots/mobile-dashboard.png)
+
+#### 6. Supporter Portal & Refund Center (wallet-gated)
+![Mobile Supporter Portal](docs/screenshots/mobile-supporter.png)
 
 ---
 
@@ -176,7 +241,7 @@ Feedback gathered during testnet user testing and community review rounds:
 
 - **Smart Contracts**: Rust, `soroban-sdk v25.0.0`, Stellar CLI
 - **Frontend & Backend**: Next.js 15 (App Router), TypeScript, TailwindCSS v4, Framer Motion, Lucide Icons, React Query, Zustand, Sonner
-- **Database**: PostgreSQL / Prisma ORM
+- **Database**: Prisma ORM — SQLite for local development, PostgreSQL-compatible in production
 - **Stellar Integration**: Stellar Wallet Kit, `@stellar/freighter-api`, `@stellar/stellar-sdk`
 
 ---
@@ -199,15 +264,20 @@ npm install
 ```
 
 ### 3. Setup Environment Variables
-Create a `.env` file in the root directory:
+Copy the example and fill in local values (never commit real secrets):
+```bash
+cp .env.example .env
+```
+
+Required variables (Testnet defaults are provided in `.env.example`):
 ```env
 DATABASE_URL="file:./dev.db"
 NEXT_PUBLIC_STELLAR_NETWORK="TESTNET"
 NEXT_PUBLIC_STELLAR_RPC_URL="https://soroban-testnet.stellar.org"
 NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
-NEXT_PUBLIC_NATIVE_XLM_CONTRACT="CDLZFC3SYJYDVR72C5SCNXLI32WVWRK2VXLZ45UKEBRC6EDT3GVSR2HN"
-NEXT_PUBLIC_CROWDFUND_CONTRACT_ID="CDEE2K7UAVF2V2K62P7D5XOTSIWKWBN2Z3I4FU3PBSXWGLMNIMMHB4NE"
-JWT_SECRET="crowdfundx_super_secret_jwt_key_stellar_2026"
+NEXT_PUBLIC_NATIVE_XLM_CONTRACT="CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+NEXT_PUBLIC_CROWDFUND_CONTRACT_ID="CAOGXHKQLQYUR4RHORAFOGOX3J526V6PWIOLPCLEDO5DRQTUZ3VIC43M"
+JWT_SECRET="replace_with_a_long_random_secret"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
@@ -238,8 +308,7 @@ cargo test
 
 ### Build Contract to WASM
 ```bash
-cd contracts/crowdfund
-stellar contract build
+npm run contract:build
 ```
 
 ### Deploy to Stellar Testnet
@@ -248,12 +317,19 @@ stellar contract build
 stellar keys generate deployer --network testnet
 stellar keys fund deployer --network testnet
 
-# Deploy compiled WASM
+# Deploy compiled (optimized) WASM — prints the contract ID
 cd contracts/crowdfund
 stellar contract deploy \
   --wasm target/wasm32v1-none/release/crowdfundx_contract.wasm \
   --source deployer \
   --network testnet
+
+# Initialize once with the native XLM token (Testnet address shown)
+stellar contract invoke \
+  --id <CONTRACT_ID> \
+  --source deployer \
+  --network testnet \
+  -- initialize --token CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 ```
 
 ---
