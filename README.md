@@ -149,6 +149,11 @@ Below is the verified transaction history log of wallet interactions from the te
 | :--- | :--- | :--- | :--- |
 | **Indrajit Ari** | `GD3KR7FOGKY37GW55MBO7F4DAPWWQ6BFV5XW3SFTPTB7X44W6F3KJX7M` | Wallet Connect & Campaign Search | "Connected Freighter in seconds on Testnet. The UI is clean, and wallet-based user identity works seamlessly without email sign-ups." |
 
+### 📝 Community Feedback Form & Responses
+
+- **Feedback Form:** [FundX Feedback Form](https://forms.gle/x4odBSeLL3357APUA) — share your experience using CrowdFundX on Stellar Testnet.
+- **Responses:** [Feedback Form (Responses) — Google Sheets](https://docs.google.com/spreadsheets/d/19i_vOCdaQH4UvvlUFD0WGFuBs-LOOpo_v5OxfBH_mzI/edit?usp=sharing) — live collection of submitted feedback.
+
 ---
 
 ## 💬 Early User Feedback & Community Review Summary
