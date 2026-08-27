@@ -129,6 +129,26 @@ CrowdFundX implements production-grade telemetry and real-time monitoring across
 
 ---
 
+### 🔑 Wallet Connection Credentials (TEST ACCOUNT)
+
+To verify the wallet connection requirement, use the following funded Stellar Testnet account via Freighter:
+
+| Parameter | Details |
+| :--- | :--- |
+| **Test Stellar Wallet Address (Freighter)** | `GD3KR7FOGKY37GW55MBO7F4DAPWWQ6BFV5XW3SFTPTB7X44W6F3KJX7M` |
+| **Balance** | 9,989.9867 XLM (As verified on Testnet) |
+| **Network** | Stellar Testnet (TESTNET) |
+
+### 🧑‍💻 User Feedback & Observations
+
+Below is the verified transaction history log of wallet interactions from the test users:
+
+| **User** | **Wallet** | **Action** | **Feedback/Observation** |
+| :--- | :--- | :--- | :--- |
+| **Indrajit Ari** | `GD3KR7FOGKY37GW55MBO7F4DAPWWQ6BFV5XW3SFTPTB7X44W6F3KJX7M` | Wallet Connect & Campaign Search | "Connected Freighter in seconds on Testnet. The UI is clean, and wallet-based user identity works seamlessly without email sign-ups." |
+
+---
+
 ## 💬 Early User Feedback & Community Review Summary
 
 Feedback gathered during testnet user testing and community review rounds:
