@@ -216,33 +216,12 @@ Feedback gathered during testnet user testing and community review rounds:
 #### 6. Supporter Portal & Refund Center
 ![Supporter Portal](docs/screenshots/desktop-supporter.png)
 
----
 
-### 📱 Mobile Responsive Experience (390×844)
-
-#### 1. Home
-![Mobile Home](docs/screenshots/mobile-home.png)
-
-#### 2. Explore Campaigns Marketplace
-![Mobile Explore Campaigns](docs/screenshots/mobile-campaigns.png)
-
-#### 3. Campaign Detail & Funding Panel
-![Mobile Campaign Detail](docs/screenshots/mobile-campaigns-neurostellar-ai-marketplace.png)
-
-#### 4. Creator Studio — Campaign Launch Flow
-![Mobile Create Campaign](docs/screenshots/mobile-campaigns-create.png)
-
-#### 5. Creator Dashboard (wallet-gated)
-![Mobile Creator Dashboard](docs/screenshots/mobile-dashboard.png)
-
-#### 6. Supporter Portal & Refund Center (wallet-gated)
-![Mobile Supporter Portal](docs/screenshots/mobile-supporter.png)
 
 ---
 
 ## 🎥 Demo Video
 
-[![CrowdFundX Demo Video](https://img.youtube.com/vi/X9E2upV4nJw/maxresdefault.jpg)](https://youtu.be/X9E2upV4nJw)
 
 ▶️ **Watch the Platform & Soroban Escrow Demo Video on YouTube**: [https://youtu.be/X9E2upV4nJw](https://youtu.be/X9E2upV4nJw)
 
