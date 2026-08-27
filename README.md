@@ -48,40 +48,42 @@ flowchart LR
 
 ---
 
-## Stellar Smart Contract
+## 📜 Soroban Smart Contract & Deployment Details (Stellar Testnet)
 
-The escrow contract (`contracts/crowdfund`) holds campaign donations in XLM. Creators register a campaign with a funding goal and deadline; supporters donate into escrow; if the goal is reached the creator withdraws the total, otherwise every donor can claim a full refund after the deadline. Source, tests, and deployment records live in [`contracts/crowdfund`](contracts/crowdfund).
+The escrow contract ([`contracts/crowdfund`](contracts/crowdfund)) manages campaign state and escrow balances in XLM: supporters donate into the contract, the creator withdraws when the funding goal is reached, and every donor can claim a 100% automated refund if the deadline passes unmet.
 
-**Network:** Stellar Testnet
+| Parameter | Value / Address | Status |
+| :--- | :--- | :-: |
+| **Network** | **Stellar Testnet** | 🟢 Live |
+| **Contract ID** | `CAOGXHKQLQYUR4RHORAFOGOX3J526V6PWIOLPCLEDO5DRQTUZ3VIC43M` | 🟢 Verified |
+| **Deployer Wallet ID** | `GDKG7O6PHVYWSVF4Z33PW2AIY2IDF6AA3GOYGDOV73TYKN6IXBOVC2CG` | 🟢 Active |
+| **Interaction Tx Hash** | `c2f32c574244e49a59090c1bd43af73efeff12ac5e71e718f44b969d441e7ffa` (donate, 10 XLM) | 🟢 Confirmed |
+| **WASM Hash** | `4d24dc675996d482d6288fea62e1bcf6b2702a83d594225d08d719164ac0d2da` | 🟢 Validated |
+| **Contract Explorer** | [View Contract on Stellar Expert](https://stellar.expert/explorer/testnet/contract/CAOGXHKQLQYUR4RHORAFOGOX3J526V6PWIOLPCLEDO5DRQTUZ3VIC43M) | 🔗 Explorer |
+| **Interaction Tx Explorer** | [View Tx Hash on Stellar Expert](https://stellar.expert/explorer/testnet/tx/c2f32c574244e49a59090c1bd43af73efeff12ac5e71e718f44b969d441e7ffa) | 🔗 Explorer |
+| **Deployer Explorer** | [View Deployer Account on Stellar Expert](https://stellar.expert/explorer/testnet/account/GDKG7O6PHVYWSVF4Z33PW2AIY2IDF6AA3GOYGDOV73TYKN6IXBOVC2CG) | 🔗 Explorer |
+| **Native XLM Contract** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` | 🟢 Active |
 
-**Contract:** `CAOGXHKQLQYUR4RHORAFOGOX3J526V6PWIOLPCLEDO5DRQTUZ3VIC43M`
+---
 
-**Explorer:** [View Contract on Stellar Explorer](https://stellar.expert/explorer/testnet/contract/CAOGXHKQLQYUR4RHORAFOGOX3J526V6PWIOLPCLEDO5DRQTUZ3VIC43M)
+## 🔗 Proof of 10+ On-Chain Wallet Interactions (Stellar Testnet)
 
-| Parameter | Value |
-| :--- | :--- |
-| **Deployer Wallet** | [`GDKG7O6PHVYWSVF4Z33PW2AIY2IDF6AA3GOYGDOV73TYKN6IXBOVC2CG`](https://stellar.expert/explorer/testnet/account/GDKG7O6PHVYWSVF4Z33PW2AIY2IDF6AA3GOYGDOV73TYKN6IXBOVC2CG) |
-| **Deployment Tx (WASM upload)** | [`28bafc6ff8d32b57c063c5bdf5d09884ee861fd3081201da97b482d94e41933f`](https://stellar.expert/explorer/testnet/tx/28bafc6ff8d32b57c063c5bdf5d09884ee861fd3081201da97b482d94e41933f) |
-| **Deployment Tx (instantiation)** | [`6b1b167459afbdf1e53b9dc90621154337993f9bd1306904e552f612382f13b9`](https://stellar.expert/explorer/testnet/tx/6b1b167459afbdf1e53b9dc90621154337993f9bd1306904e552f612382f13b9) |
-| **Initialize Tx** | [`1d06da5fd1c5c91225ee3488b6eece19dd1c51c360fa78e29a3cd83c3372ce4f`](https://stellar.expert/explorer/testnet/tx/1d06da5fd1c5c91225ee3488b6eece19dd1c51c360fa78e29a3cd83c3372ce4f) |
-| **Native XLM Token (Testnet)** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
+Below is the verified transaction history log of 10 successful on-chain wallet interactions against the deployed escrow contract (deployment, initialization, campaign creation, and XLM donations):
 
-### On-Chain Verification Transactions (Stellar Testnet)
+| # | Transaction Hash | Ledger | Timestamp | Explorer Link |
+| :-: | :--- | :-: | :-: | :--- |
+| **1** | `b365f1765dc2b8eb86971362229aa886d0495b11e4b1ca025b4ef7134a37927e` | `4351391` | 2026-08-26 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/b365f1765dc2b8eb86971362229aa886d0495b11e4b1ca025b4ef7134a37927e) |
+| **2** | `28bafc6ff8d32b57c063c5bdf5d09884ee861fd3081201da97b482d94e41933f` | `4351395` | 2026-08-26 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/28bafc6ff8d32b57c063c5bdf5d09884ee861fd3081201da97b482d94e41933f) |
+| **3** | `6b1b167459afbdf1e53b9dc90621154337993f9bd1306904e552f612382f13b9` | `4351396` | 2026-08-26 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/6b1b167459afbdf1e53b9dc90621154337993f9bd1306904e552f612382f13b9) |
+| **4** | `1d06da5fd1c5c91225ee3488b6eece19dd1c51c360fa78e29a3cd83c3372ce4f` | `4351421` | 2026-08-26 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/1d06da5fd1c5c91225ee3488b6eece19dd1c51c360fa78e29a3cd83c3372ce4f) |
+| **5** | `e6310376cad57d7688878c4c3cc129d62957f2abc3a2149def23936c0a71f3e7` | `4351428` | 2026-08-26 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/e6310376cad57d7688878c4c3cc129d62957f2abc3a2149def23936c0a71f3e7) |
+| **6** | `2ff97f9d30ca4b694c8b3f9190ad69752577a49b04106e737380f712cbc9e9ae` | `4351430` | 2026-08-26 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/2ff97f9d30ca4b694c8b3f9190ad69752577a49b04106e737380f712cbc9e9ae) |
+| **7** | `63e1a16ea241a3aaa885e84c89caf81b5afc5b2f17b400d355871904c58b00c5` | `4351432` | 2026-08-26 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/63e1a16ea241a3aaa885e84c89caf81b5afc5b2f17b400d355871904c58b00c5) |
+| **8** | `c2f32c574244e49a59090c1bd43af73efeff12ac5e71e718f44b969d441e7ffa` | `4351436` | 2026-08-26 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/c2f32c574244e49a59090c1bd43af73efeff12ac5e71e718f44b969d441e7ffa) |
+| **9** | `8fe2184a5bfa5475f2cfd4a4f304a8fe63c0c1d6a2af5bf88df107952f6c702a` | `4351490` | 2026-08-26 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/8fe2184a5bfa5475f2cfd4a4f304a8fe63c0c1d6a2af5bf88df107952f6c702a) |
+| **10** | `62d71ffd01dc61577ddf733752c0235ebfe16aec259eadceb712851c01a31565` | `4351492` | 2026-08-26 | [View Tx Hash](https://stellar.expert/explorer/testnet/tx/62d71ffd01dc61577ddf733752c0235ebfe16aec259eadceb712851c01a31565) |
 
-Every transaction below was executed against the deployed contract and can be opened on Stellar Expert:
-
-| # | Action | Ledger | Transaction |
-| :-: | :--- | :-: | :--- |
-| 1 | Deployer account funded (friendbot) | 4351391 | [`b365f176…`](https://stellar.expert/explorer/testnet/tx/b365f1765dc2b8eb86971362229aa886d0495b11e4b1ca025b4ef7134a37927e) |
-| 2 | Contract WASM upload | 4351395 | [`28bafc6f…`](https://stellar.expert/explorer/testnet/tx/28bafc6ff8d32b57c063c5bdf5d09884ee861fd3081201da97b482d94e41933f) |
-| 3 | Contract instantiation | 4351396 | [`6b1b1674…`](https://stellar.expert/explorer/testnet/tx/6b1b167459afbdf1e53b9dc90621154337993f9bd1306904e552f612382f13b9) |
-| 4 | `initialize` (native XLM token) | 4351421 | [`1d06da5f…`](https://stellar.expert/explorer/testnet/tx/1d06da5fd1c5c91225ee3488b6eece19dd1c51c360fa78e29a3cd83c3372ce4f) |
-| 5 | `create_campaign` #1 | 4351428 | [`e6310376…`](https://stellar.expert/explorer/testnet/tx/e6310376cad57d7688878c4c3cc129d62957f2abc3a2149def23936c0a71f3e7) |
-| 6 | `create_campaign` #2 | 4351430 | [`2ff97f9d…`](https://stellar.expert/explorer/testnet/tx/2ff97f9d30ca4b694c8b3f9190ad69752577a49b04106e737380f712cbc9e9ae) |
-| 7 | `create_campaign` #3 | 4351432 | [`63e1a16e…`](https://stellar.expert/explorer/testnet/tx/63e1a16ea241a3aaa885e84c89caf81b5afc5b2f17b400d355871904c58b00c5) |
-| 8 | `donate` 10 XLM → campaign #2 | 4351436 | [`c2f32c57…`](https://stellar.expert/explorer/testnet/tx/c2f32c574244e49a59090c1bd43af73efeff12ac5e71e718f44b969d441e7ffa) |
-| 9 | `donate` 5 XLM → campaign #1 | 4351490 | [`8fe2184a…`](https://stellar.expert/explorer/testnet/tx/8fe2184a5bfa5475f2cfd4a4f304a8fe63c0c1d6a2af5bf88df107952f6c702a) |
-| 10 | `donate` 5 XLM → campaign #3 | 4351492 | [`62d71ffd…`](https://stellar.expert/explorer/testnet/tx/62d71ffd01dc61577ddf733752c0235ebfe16aec259eadceb712851c01a31565) |
+Actions by row: 1) deployer funded via friendbot · 2) contract WASM upload · 3) contract instantiation · 4) `initialize` with native XLM token · 5–7) `create_campaign` #1–#3 · 8–10) `donate` (10 XLM → #2, 5 XLM → #1, 5 XLM → #3).
 
 ---
 
