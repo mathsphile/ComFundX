@@ -24,7 +24,7 @@ export function Field({
     <div className={cn("space-y-2", className)}>
       <label className="flex items-center justify-between text-[13px] font-medium text-fg-muted">
         <span>
-          {label} {required && <span className="text-accent">*</span>}
+          {label} {required && <span className="text-danger">*</span>}
         </span>
         {hint && <span className="text-[11px] text-fg-faint">{hint}</span>}
       </label>

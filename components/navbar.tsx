@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWalletStore } from "@/lib/store/walletStore";
+import { useTheme, setTheme } from "@/lib/theme";
+import { DUR, EASE } from "@/lib/motion";
 import {
   Wallet,
   Rocket,
@@ -17,6 +20,9 @@ import {
   ExternalLink,
   Menu,
   X,
+  Sun,
+  Moon,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, shortAddress, formatXlm } from "@/lib/utils";
@@ -28,23 +34,14 @@ const NAV_LINKS = [
   { name: "Supporter", href: "/supporter", icon: HeartHandshake },
 ];
 
-/** Orbital brand mark — a star with a single orbiting body. */
-function LogoMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
-      <circle cx="16" cy="16" r="5.5" fill="currentColor" opacity="0.95" />
-      <ellipse cx="16" cy="16" rx="13" ry="6" stroke="currentColor" strokeWidth="1.4" opacity="0.45" />
-      <circle cx="27.5" cy="12" r="1.8" fill="currentColor" />
-    </svg>
-  );
-}
-
 export function Navbar() {
   const pathname = usePathname();
+  const theme = useTheme();
   const { isConnected, publicKey, balance, connect, disconnect, hasFreighter } = useWalletStore();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -110,9 +107,13 @@ export function Navbar() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Brand */}
         <Link href="/" className="flex items-center gap-2.5 group shrink-0" aria-label="CrowdFundX home">
-          <span className="text-accent group-hover:text-accent-strong transition-colors">
-            <LogoMark className="w-7 h-7" />
-          </span>
+          <Image
+            src="/logo.png"
+            alt=""
+            width={32}
+            height={32}
+            className="h-8 w-8 rounded-lg border border-line"
+          />
           <span className="font-display text-[19px] font-semibold tracking-tight text-fg">
             CrowdFund<span className="text-accent">X</span>
           </span>
@@ -126,12 +127,20 @@ export function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
+                aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "px-3.5 py-2 rounded-[10px] text-[13.5px] font-medium transition-colors",
-                  isActive ? "text-fg bg-surface-2" : "text-fg-muted hover:text-fg hover:bg-surface"
+                  "relative px-3 py-2 text-sm font-medium transition-colors",
+                  isActive ? "text-fg" : "text-fg-muted hover:text-fg"
                 )}
               >
                 {link.name}
+                {isActive && (
+                  <motion.span
+                    layoutId="nav-active"
+                    className="absolute inset-x-3 -bottom-px h-[2px] rounded-full bg-fg"
+                    transition={{ duration: DUR.fast, ease: EASE }}
+                  />
+                )}
               </Link>
             );
           })}
@@ -139,6 +148,17 @@ export function Navbar() {
 
         {/* Right cluster */}
         <div className="flex items-center gap-2.5" ref={dropdownRef}>
+          {/* Network indicator */}
+          <span
+            className="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-[10px] font-mono font-semibold uppercase tracking-widest text-fg-muted"
+            title="Connected Stellar network"
+          >
+            <span className="h-1 w-1 rounded-full bg-success animate-pulse-dot" aria-hidden="true" />
+            Testnet
+          </span>
+
+          <ThemeToggle theme={theme} className="hidden sm:flex" />
+
           {isConnected && (
             <div className="relative hidden sm:block">
               <button
@@ -189,7 +209,7 @@ export function Navbar() {
           {!isConnected ? (
             <button
               onClick={handleConnect}
-              className="hidden sm:inline-flex items-center gap-2 rounded-[11px] bg-accent px-4 h-10 text-sm font-semibold text-fg-on-accent transition-all hover:bg-accent-strong shadow-[0_8px_24px_-8px_rgba(255,106,26,0.5)]"
+              className="hidden sm:inline-flex items-center gap-2 rounded-lg bg-accent px-[18px] h-10 text-sm font-medium text-fg-on-accent transition-all hover:bg-accent-strong active:scale-[0.98]"
             >
               <Wallet className="w-4 h-4" />
               Connect Wallet
@@ -224,7 +244,39 @@ export function Navbar() {
                   >
                     <div className="px-3 py-3 border-b border-line mb-2">
                       <p className="text-[10px] uppercase tracking-wider text-fg-faint font-mono">Stellar Account</p>
-                      <p className="mt-1.5 break-all font-mono text-[11px] text-fg leading-relaxed">{publicKey}</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard
+                            .writeText(publicKey ?? "")
+                            .then(() => {
+                              setCopied(true);
+                              setTimeout(() => setCopied(false), 1600);
+                            })
+                            .catch(() => {});
+                        }}
+                        className="mt-1.5 flex w-full items-start justify-between gap-2 text-left group/copy"
+                        aria-label="Copy wallet address to clipboard"
+                      >
+                        <span className="break-all font-mono text-[11px] text-fg leading-relaxed">{publicKey}</span>
+                        <span
+                          className={cn(
+                            "mt-0.5 flex shrink-0 items-center gap-1 text-[10px] font-semibold transition-opacity",
+                            copied
+                              ? "text-success opacity-100"
+                              : "text-fg-faint opacity-0 group-hover/copy:opacity-100"
+                          )}
+                          aria-live="polite"
+                        >
+                          {copied ? (
+                            <>
+                              <Check className="w-3 h-3" /> Copied
+                            </>
+                          ) : (
+                            "Copy"
+                          )}
+                        </span>
+                      </button>
                     </div>
 
                     <MenuItem href="/dashboard" icon={<LayoutDashboard className="w-4 h-4 text-accent" />}>
@@ -262,6 +314,7 @@ export function Navbar() {
           )}
 
           {/* Mobile menu trigger */}
+          <ThemeToggle theme={theme} className="md:hidden" />
           <button
             className="md:hidden flex h-10 w-10 items-center justify-center rounded-[10px] border border-line bg-surface text-fg"
             onClick={() => setMobileOpen((v) => !v)}
@@ -336,6 +389,32 @@ export function Navbar() {
         )}
       </AnimatePresence>
     </header>
+  );
+}
+
+function ThemeToggle({ theme, className }: { theme: "dark" | "light"; className?: string }) {
+  return (
+    <button
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      className={cn(
+        "h-10 w-10 items-center justify-center rounded-[10px] border border-line bg-surface text-fg-muted transition-colors hover:text-fg hover:border-line-strong",
+        className
+      )}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={theme}
+          initial={{ opacity: 0, rotate: -60, scale: 0.7 }}
+          animate={{ opacity: 1, rotate: 0, scale: 1 }}
+          exit={{ opacity: 0, rotate: 60, scale: 0.7 }}
+          transition={{ duration: DUR.fast, ease: EASE }}
+          className="flex"
+        >
+          {theme === "dark" ? <Sun className="w-[17px] h-[17px]" /> : <Moon className="w-[17px] h-[17px]" />}
+        </motion.span>
+      </AnimatePresence>
+    </button>
   );
 }
 

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
+import { useTheme } from "@/lib/theme";
 
 function isWebGLAvailable() {
   try {
@@ -55,6 +56,7 @@ const Scene = dynamic(() => import("./hero-scene"), {
  * - The render loop pauses while the hero is offscreen or the tab is hidden
  */
 export function HeroVisual({ className }: { className?: string }) {
+  const theme = useTheme();
   const [mode, setMode] = useState<"loading" | "static" | "low" | "high">("loading");
   const [inView, setInView] = useState(true);
   const [tabVisible, setTabVisible] = useState(true);
@@ -99,7 +101,7 @@ export function HeroVisual({ className }: { className?: string }) {
     <div ref={wrapRef} className={className} aria-hidden="true">
       <div className="absolute inset-0 animate-fade-in">
         <SceneErrorBoundary fallback={<StaticBackdrop className="absolute inset-0" />}>
-          <Scene detail={mode} active={inView && tabVisible} />
+          <Scene detail={mode} active={inView && tabVisible} palette={theme} />
         </SceneErrorBoundary>
       </div>
     </div>

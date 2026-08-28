@@ -6,6 +6,15 @@
 //! - if the goal is missed by the deadline, each donor claims a full refund
 //!
 //! Amounts are in stroops (1 XLM = 10_000_000 stroops).
+//!
+//! Security model:
+//! - every state-changing entrypoint requires Soroban authorization from
+//!   the acting address (creator for campaigns/withdrawals, contributor
+//!   for donations/refunds, initializer for setup)
+//! - balances live in the token contract; `raised` accounting mirrors
+//!   successful transfers only
+//! - persistent entries are kept alive past the campaign deadline plus a
+//!   grace window so refunds remain claimable after expiry
 
 #![no_std]
 
@@ -13,8 +22,16 @@ use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, token, Address, Env,
 };
 
-/// ~30 days of ledger lifetime added to touched entries (5s close time).
-const TTL_LEDGERS: u32 = 518_400;
+/// Stellar ledger close time is ~5 seconds.
+const SECONDS_PER_LEDGER: u64 = 5;
+
+/// Extra entry lifetime beyond the campaign deadline (~90 days of ledgers),
+/// giving donors a wide window to claim refunds after a failed campaign.
+const GRACE_LEDGERS: u32 = 1_555_200;
+
+/// Maximum campaign duration (365 days). Bounds the rent/TTL any single
+/// campaign can demand and keeps deadlines sanity-checkable.
+const MAX_CAMPAIGN_SECONDS: u64 = 365 * 86_400;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -33,6 +50,7 @@ pub enum Error {
     CampaignStillActive = 11,
     GoalReached = 12,
     NoDonation = 13,
+    DeadlineTooFar = 14,
 }
 
 #[contracttype]
@@ -103,18 +121,32 @@ fn load_campaign(env: &Env, campaign_id: u64) -> Result<Campaign, Error> {
         .ok_or(Error::CampaignNotFound)
 }
 
-fn bump(env: &Env, key: &DataKey) {
-    let ledger = env.ledger().sequence();
-    env.storage()
-        .persistent()
-        .extend_ttl(key, ledger + TTL_LEDGERS, ledger + TTL_LEDGERS);
+/// Whole ledgers between two timestamps (0 when `target` is not in the future).
+fn ledgers_until(now_seconds: u64, target_seconds: u64) -> u32 {
+    let seconds = target_seconds.saturating_sub(now_seconds);
+    u32::try_from(seconds / SECONDS_PER_LEDGER).unwrap_or(u32::MAX)
+}
+
+/// Extend a persistent entry so it survives the campaign deadline plus the
+/// refund grace window. Without this, a quiet campaign's state could expire
+/// before its deadline and lock escrowed funds.
+fn extend_past_deadline(env: &Env, key: &DataKey, deadline: u64) {
+    let ledgers = ledgers_until(env.ledger().timestamp(), deadline);
+    let target = env
+        .ledger()
+        .sequence()
+        .saturating_add(ledgers)
+        .saturating_add(GRACE_LEDGERS);
+    env.storage().persistent().extend_ttl(key, target, target);
 }
 
 #[contractimpl]
 impl Crowdfund {
-    /// Set the token used for payments (native XLM on testnet/mainnet).
-    /// Callable once; must precede donate/withdraw/claim_refund.
-    pub fn initialize(env: Env, token: Address) -> Result<(), Error> {
+    /// Set the payment token (the native XLM Stellar Asset Contract on
+    /// testnet/mainnet). Callable once and authorized by `admin`, so an
+    /// uninitialized deployment cannot be taken over by a third party.
+    pub fn initialize(env: Env, admin: Address, token: Address) -> Result<(), Error> {
+        admin.require_auth();
         if env.storage().instance().has(&DataKey::Token) {
             return Err(Error::AlreadyInitialized);
         }
@@ -123,7 +155,9 @@ impl Crowdfund {
         Ok(())
     }
 
-    /// Register a campaign. `deadline` is a unix timestamp in the future.
+    /// Register a campaign. `deadline` is a unix timestamp: strictly in the
+    /// future and at most 365 days out. IDs are sequential and assigned here,
+    /// never caller-controlled.
     pub fn create_campaign(
         env: Env,
         creator: Address,
@@ -134,8 +168,12 @@ impl Crowdfund {
         if goal <= 0 {
             return Err(Error::InvalidGoal);
         }
-        if deadline <= env.ledger().timestamp() {
+        let now = env.ledger().timestamp();
+        if deadline <= now {
             return Err(Error::InvalidDeadline);
+        }
+        if deadline - now > MAX_CAMPAIGN_SECONDS {
+            return Err(Error::DeadlineTooFar);
         }
 
         let count: u64 = env.storage().instance().get(&DataKey::Count).unwrap_or(0);
@@ -151,7 +189,7 @@ impl Crowdfund {
 
         let key = DataKey::Campaign(campaign_id);
         env.storage().persistent().set(&key, &campaign);
-        bump(&env, &key);
+        extend_past_deadline(&env, &key, deadline);
         env.storage().instance().set(&DataKey::Count, &campaign_id);
 
         CampaignCreated {
@@ -163,7 +201,12 @@ impl Crowdfund {
     }
 
     /// Transfer `amount` from the contributor into campaign escrow.
-    pub fn donate(env: Env, contributor: Address, campaign_id: u64, amount: i128) -> Result<(), Error> {
+    pub fn donate(
+        env: Env,
+        contributor: Address,
+        campaign_id: u64,
+        amount: i128,
+    ) -> Result<(), Error> {
         contributor.require_auth();
         if amount <= 0 {
             return Err(Error::InvalidAmount);
@@ -178,21 +221,20 @@ impl Crowdfund {
         }
 
         let token = token_address(&env)?;
-        token::Client::new(&env, &token).transfer(
-            &contributor,
-            &env.current_contract_address(),
-            &amount,
-        );
+        let escrow = env.current_contract_address();
+        token::Client::new(&env, &token).transfer(&contributor, &escrow, &amount);
 
         campaign.raised += amount;
         let campaign_key = DataKey::Campaign(campaign_id);
         env.storage().persistent().set(&campaign_key, &campaign);
-        bump(&env, &campaign_key);
+        extend_past_deadline(&env, &campaign_key, campaign.deadline);
 
         let donation_key = DataKey::Donation(contributor.clone(), campaign_id);
         let donated: i128 = env.storage().persistent().get(&donation_key).unwrap_or(0);
-        env.storage().persistent().set(&donation_key, &(donated + amount));
-        bump(&env, &donation_key);
+        env.storage()
+            .persistent()
+            .set(&donation_key, &(donated + amount));
+        extend_past_deadline(&env, &donation_key, campaign.deadline);
 
         Donated {
             campaign_id,
@@ -202,7 +244,8 @@ impl Crowdfund {
         Ok(())
     }
 
-    /// Creator withdraws the total raised once the goal is reached. One-shot.
+    /// Creator withdraws the total raised once the goal is reached. One-shot;
+    /// permanently closes the refund path because raised >= goal.
     pub fn withdraw(env: Env, caller: Address, campaign_id: u64) -> Result<(), Error> {
         caller.require_auth();
 
@@ -218,16 +261,13 @@ impl Crowdfund {
         }
 
         let token = token_address(&env)?;
-        token::Client::new(&env, &token).transfer(
-            &env.current_contract_address(),
-            &campaign.creator,
-            &campaign.raised,
-        );
+        let escrow = env.current_contract_address();
+        token::Client::new(&env, &token).transfer(&escrow, &campaign.creator, &campaign.raised);
 
         campaign.withdrawn = true;
         let key = DataKey::Campaign(campaign_id);
         env.storage().persistent().set(&key, &campaign);
-        bump(&env, &key);
+        extend_past_deadline(&env, &key, campaign.deadline);
 
         Withdrawn {
             campaign_id,
@@ -237,7 +277,8 @@ impl Crowdfund {
         Ok(())
     }
 
-    /// Donor claims back their full contribution after a failed campaign.
+    /// Donor claims back their full contribution after a failed campaign
+    /// (deadline passed with the goal unreached). One-shot per contributor.
     pub fn claim_refund(env: Env, contributor: Address, campaign_id: u64) -> Result<(), Error> {
         contributor.require_auth();
 
@@ -256,11 +297,8 @@ impl Crowdfund {
         }
 
         let token = token_address(&env)?;
-        token::Client::new(&env, &token).transfer(
-            &env.current_contract_address(),
-            &contributor,
-            &donated,
-        );
+        let escrow = env.current_contract_address();
+        token::Client::new(&env, &token).transfer(&escrow, &contributor, &donated);
 
         env.storage().persistent().set(&donation_key, &0i128);
 
@@ -274,7 +312,9 @@ impl Crowdfund {
 
     /// Campaign state, if it exists.
     pub fn get_campaign(env: Env, campaign_id: u64) -> Option<Campaign> {
-        env.storage().persistent().get(&DataKey::Campaign(campaign_id))
+        env.storage()
+            .persistent()
+            .get(&DataKey::Campaign(campaign_id))
     }
 
     /// Contributor's total live contribution to a campaign (0 after refund).

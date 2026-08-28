@@ -3,12 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Users, Clock, Bookmark, BadgeCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useWalletStore } from "@/lib/store/walletStore";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
+import { SPRING_SOFT } from "@/lib/motion";
 import { cn, formatXlm, daysUntil } from "@/lib/utils";
 
 interface CampaignCardProps {
@@ -61,10 +63,15 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
   };
 
   return (
-    <Link
-      href={`/campaigns/${campaign.slug}`}
-      className="group panel panel-hover overflow-hidden flex flex-col h-full relative"
+    <motion.div
+      whileHover={{ y: -6 }}
+      transition={SPRING_SOFT}
+      className="h-full"
     >
+      <Link
+        href={`/campaigns/${campaign.slug}`}
+        className="group panel panel-hover overflow-hidden flex flex-col h-full relative"
+      >
       {/* Cover */}
       <div className="relative w-full h-48 overflow-hidden bg-surface-2">
         <Image
@@ -147,6 +154,7 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
           </span>
         </div>
       </div>
-    </Link>
+      </Link>
+    </motion.div>
   );
 }

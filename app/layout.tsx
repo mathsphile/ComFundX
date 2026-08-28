@@ -1,21 +1,15 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { SiteChrome } from "@/components/site-chrome";
+import { themeInitScript } from "@/lib/theme";
 
 const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
   variable: "--font-inter",
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  variable: "--font-grotesk",
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -56,9 +50,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body className="antialiased min-h-screen flex flex-col">
+        {/* Apply persisted theme before hydration to avoid a flash */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <Providers>
           <SiteChrome>{children}</SiteChrome>
         </Providers>

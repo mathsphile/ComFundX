@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Search, Compass, SlidersHorizontal } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { CampaignCard } from "@/components/campaign-card";
 import { CampaignCardSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
+import { EASE, SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 const CATEGORIES = ["All", "Technology", "AI", "Web3", "Education", "Gaming", "Open Source"];
@@ -140,11 +142,22 @@ export default function MarketplacePage() {
           className="my-8"
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {campaigns.map((c: any) => (
-            <CampaignCard key={c.id} campaign={c} />
-          ))}
-        </div>
+        <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence mode="popLayout">
+            {campaigns.map((c: any, i: number) => (
+              <motion.div
+                layout
+                key={c.id}
+                initial={{ opacity: 0, scale: 0.96, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ ...SPRING, delay: Math.min(i, 8) * 0.045, opacity: { duration: 0.3, ease: EASE } }}
+              >
+                <CampaignCard campaign={c} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       )}
     </Container>
   );

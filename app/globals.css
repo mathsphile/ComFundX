@@ -1,50 +1,65 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------
-   Stellar Meridian — design tokens
-   A dark, precise, observatory-grade fintech theme. Hairline borders,
-   restrained color, and two semantic accents:
-     accent  = solar orange  (funding, money, primary CTA)
-     network = stellar cyan  (network, status, links)
+   CrowdFundX design tokens — after design.md
+   A quietly-confident, editorial product surface:
+     - pure white canvas, ink text, hairline depth
+     - black is the only CTA voltage (white in dark mode)
+     - link blue reserved for inline links and network signals
+     - Inter for all sans text, JetBrains Mono for code/data
+   Dark mode is the intentional inversion of the same system, not a
+   separate design.
 ------------------------------------------------------------------- */
 @theme {
-  /* Surfaces */
-  --color-bg: #05070d;
-  --color-bg-soft: #090d16;
-  --color-surface: #0d1220;
-  --color-surface-2: #141a2b;
-  --color-surface-3: #1b2338;
+  /* Surfaces (light defaults) */
+  --color-bg: #ffffff;
+  --color-bg-soft: #fafafa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0f0f3;
+  --color-surface-3: #e7e9ee;
 
   /* Hairline borders */
-  --color-line: rgba(157, 172, 202, 0.12);
-  --color-line-strong: rgba(157, 172, 202, 0.24);
-  --color-line-bright: rgba(197, 208, 231, 0.4);
+  --color-line: #f0f0f3;
+  --color-line-soft: #f5f5f7;
+  --color-line-strong: #dcdee0;
+  --color-line-bright: #c9ccd2;
 
   /* Text */
-  --color-fg: #eef1f8;
-  --color-fg-muted: #99a3ba;
-  --color-fg-faint: #8790a5;
-  --color-fg-on-accent: #140b04;
+  --color-fg: #171717;
+  --color-fg-muted: #60646c;
+  --color-fg-faint: #999999;
+  --color-fg-disabled: #cccccc;
+  --color-fg-on-accent: #ffffff;
 
-  /* Accents */
-  --color-accent: #ff6a1a;
-  --color-accent-strong: #ff8142;
-  --color-accent-dim: #a8420c;
-  --color-network: #41c7ff;
-  --color-network-dim: #1e6f95;
-  --color-success: #34d399;
-  --color-warning: #fbbf24;
-  --color-danger: #fb7185;
+  /* Brand voltage: black CTAs only */
+  --color-accent: #000000;
+  --color-accent-strong: #1a1a1a;
+  --color-accent-dim: #404040;
+
+  /* Link blue — inline links & network signals, never CTAs */
+  --color-network: #0d74ce;
+  --color-network-dim: #7ba7d9;
+
+  /* Status */
+  --color-success: #16a34a;
+  --color-warning: #ab6400;
+  --color-danger: #d64545;
 
   /* Typography */
-  --font-display: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-inter), -apple-system, system-ui, sans-serif;
+  --font-sans: var(--font-inter), -apple-system, system-ui, sans-serif;
   --font-mono: var(--font-jbmono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Radii */
-  --radius-card: 18px;
-  --radius-box: 14px;
-  --radius-field: 11px;
+  /* Radii — compact developer dialect: 8px CTAs, 12px cards */
+  --radius-card: 12px;
+  --radius-box: 8px;
+  --radius-field: 8px;
+
+  /* Card hover depth — the single shadow tier */
+  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+  /* Skeleton shimmer (theme-swapped below) */
+  --color-shimmer: rgba(23, 23, 23, 0.05);
 
   /* Motion */
   --animate-fade-up: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -101,11 +116,51 @@
 }
 
 /* ------------------------------------------------------------------
+   Dark mode — deliberate inversion of the same editorial system.
+   Black CTAs become white; hairlines become alpha white; the sky
+   wash becomes a deep navy atmosphere.
+------------------------------------------------------------------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-bg: #0e0e10;
+  --color-bg-soft: #131316;
+  --color-surface: #17171a;
+  --color-surface-2: #1e1e22;
+  --color-surface-3: #26262b;
+
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-soft: rgba(255, 255, 255, 0.05);
+  --color-line-strong: rgba(255, 255, 255, 0.15);
+  --color-line-bright: rgba(255, 255, 255, 0.27);
+
+  --color-fg: #f5f5f6;
+  --color-fg-muted: #a4a8af;
+  --color-fg-faint: #757980;
+  --color-fg-disabled: #4d5057;
+  --color-fg-on-accent: #0b0b0c;
+
+  --color-accent: #ffffff;
+  --color-accent-strong: #e6e6e9;
+  --color-accent-dim: #b9b9bf;
+
+  --color-network: #47c2ff;
+  --color-network-dim: #1e5b7d;
+
+  --color-success: #4ade80;
+  --color-warning: #f5a623;
+  --color-danger: #f28b82;
+
+  --color-shimmer: rgba(255, 255, 255, 0.06);
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* ------------------------------------------------------------------
    Base
 ------------------------------------------------------------------- */
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   html {
@@ -118,14 +173,6 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* faint top glow, like light from the network above */
-    background-image: radial-gradient(
-        1200px 520px at 50% -120px,
-        rgba(65, 199, 255, 0.07),
-        transparent 65%
-      ),
-      radial-gradient(900px 420px at 85% 8%, rgba(255, 106, 26, 0.04), transparent 60%);
-    background-repeat: no-repeat;
     overflow-x: hidden;
   }
 
@@ -134,7 +181,7 @@
     color: var(--color-fg-on-accent);
   }
 
-  /* Thin, quiet scrollbar */
+  /* Quiet scrollbar that follows the theme */
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -143,12 +190,12 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #232b40;
+    background: var(--color-line-strong);
     border-radius: 8px;
     border: 2px solid var(--color-bg);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #32405e;
+    background: var(--color-line-bright);
   }
 
   /* Hide number spinners for clean numeric fields */
@@ -188,42 +235,74 @@ html.lenis body {
    Reusable surface & field treatments
 ------------------------------------------------------------------- */
 @layer components {
-  /* Elevated card surface */
+  /* Elevated card surface: hairline border, single shadow tier on hover */
   .panel {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)) ,
-      var(--color-surface);
-    border: 1px solid var(--color-line);
+    background: var(--color-surface);
+    border: 1px solid var(--color-line-strong);
     border-radius: var(--radius-card);
   }
 
   .panel-hover {
-    transition: border-color 0.25s ease, transform 0.25s ease, background-color 0.25s ease;
+    transition:
+      border-color 0.25s ease,
+      transform 0.25s ease,
+      box-shadow 0.25s ease,
+      background-color 0.25s ease;
   }
   .panel-hover:hover {
+    border-color: var(--color-line-bright);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Dark-inversion surface — the design system's signature contrast card */
+  .panel-dark {
+    background: #171717;
+    border: 1px solid #171717;
+    border-radius: var(--radius-card);
+    color: #ffffff;
+  }
+  :root[data-theme="dark"] .panel-dark {
+    background: #1d1d21;
     border-color: var(--color-line-strong);
   }
 
-  /* Fine dotted/starfield backdrop for hero regions */
+  /* Sky-blue atmospheric wash — hero only, per design.md.
+     Light: soft sky gradient. Dark: deep navy atmosphere. */
+  .hero-wash {
+    background:
+      radial-gradient(1100px 480px at 50% -140px, #cfe7ff 0%, transparent 68%),
+      radial-gradient(800px 380px at 82% -60px, #a8c8e8 0%, transparent 60%);
+  }
+  :root[data-theme="dark"] .hero-wash {
+    background:
+      radial-gradient(1100px 480px at 50% -140px, rgba(46, 84, 148, 0.34) 0%, transparent 68%),
+      radial-gradient(800px 380px at 82% -60px, rgba(24, 48, 92, 0.3) 0%, transparent 60%);
+  }
+
+  /* Fine dotted backdrop for the hero region */
   .starfield {
-    background-image: radial-gradient(rgba(190, 205, 235, 0.16) 1px, transparent 1.4px);
+    background-image: radial-gradient(rgba(23, 23, 23, 0.1) 1px, transparent 1.4px);
     background-size: 26px 26px;
     mask-image: radial-gradient(closest-side, black 20%, transparent 100%);
     -webkit-mask-image: radial-gradient(closest-side, black 20%, transparent 100%);
   }
-
-  /* Uppercase micro label */
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--color-network);
+  :root[data-theme="dark"] .starfield {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.13) 1px, transparent 1.4px);
   }
 
-  /* Base interactive field */
+  /* Uppercase micro label — caption-uppercase token */
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-fg-faint);
+  }
+
+  /* Base interactive field — focus thickens the border to ink */
   .field {
     width: 100%;
-    background: var(--color-bg-soft);
+    background: var(--color-surface);
     border: 1px solid var(--color-line-strong);
     border-radius: var(--radius-field);
     color: var(--color-fg);
@@ -235,8 +314,8 @@ html.lenis body {
   .field:focus,
   .field:focus-visible {
     outline: none;
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px rgba(255, 106, 26, 0.18);
+    border-color: var(--color-fg);
+    box-shadow: 0 0 0 1px var(--color-fg);
   }
 }
 

@@ -4,7 +4,7 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-[10px] bg-surface-2/80 animate-shimmer bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.05),transparent)] bg-[length:460px_100%] bg-no-repeat",
+        "rounded-[10px] bg-surface-2/80 animate-shimmer bg-[linear-gradient(110deg,transparent,var(--color-shimmer),transparent)] bg-[length:460px_100%] bg-no-repeat",
         className
       )}
     />

@@ -2,11 +2,14 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
+import { MotionConfig } from "framer-motion";
 import { Toaster } from "sonner";
 import { useWalletStore } from "@/lib/store/walletStore";
+import { useTheme } from "@/lib/theme";
 import { SmoothScroll } from "@/components/smooth-scroll";
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const theme = useTheme();
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -27,8 +30,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SmoothScroll>{children}</SmoothScroll>
-      <Toaster position="bottom-right" theme="dark" richColors closeButton />
+      {/* Globally honor OS-level reduced-motion for every animation */}
+      <MotionConfig reducedMotion="user">
+        <SmoothScroll>{children}</SmoothScroll>
+        <Toaster position="bottom-right" theme={theme} richColors closeButton />
+      </MotionConfig>
     </QueryClientProvider>
   );
 }

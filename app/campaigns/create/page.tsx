@@ -4,11 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Rocket, Check, ArrowRight, ArrowLeft, ShieldCheck, Upload } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useWalletStore } from "@/lib/store/walletStore";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Container } from "@/components/ui/container";
+import { AmbientField } from "@/components/ambient-field";
+import { DUR, EASE } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 const CATEGORIES = ["Technology", "AI", "Web3", "Education", "Gaming", "Open Source"];
@@ -101,7 +104,12 @@ export default function CreateCampaignPage() {
   };
 
   return (
-    <Container className="py-12 max-w-3xl space-y-8">
+    <Container className="relative isolate py-12 max-w-3xl space-y-8">
+      {/* Ambient depth behind the studio header */}
+      <div className="pointer-events-none absolute inset-x-0 -top-12 -z-10 h-[380px]">
+        <AmbientField className="h-full w-full" count={50} />
+      </div>
+
       {/* Header */}
       <div className="space-y-3 text-center max-w-xl mx-auto">
         <p className="eyebrow">Creator Studio</p>
@@ -141,7 +149,14 @@ export default function CreateCampaignPage() {
                 </span>
               </div>
               {idx < STEP_LABELS.length - 1 && (
-                <span className={cn("h-px flex-1 mx-1", n < step ? "bg-success/40" : "bg-line")} />
+                <span className="relative h-px flex-1 mx-1 overflow-hidden bg-line">
+                  <motion.span
+                    className="absolute inset-y-0 left-0 bg-success/60"
+                    initial={false}
+                    animate={{ width: n < step ? "100%" : "0%" }}
+                    transition={{ duration: DUR.base, ease: EASE }}
+                  />
+                </span>
               )}
             </div>
           );
@@ -150,6 +165,14 @@ export default function CreateCampaignPage() {
 
       {/* Step content */}
       <div className="panel p-6 sm:p-8 space-y-6">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: 26 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -18 }}
+            transition={{ duration: DUR.base, ease: EASE }}
+          >
         {step === 1 && (
           <div className="space-y-5">
             <h3 className="font-display text-lg font-semibold text-fg">Campaign Information</h3>
@@ -296,6 +319,8 @@ export default function CreateCampaignPage() {
             </Button>
           </div>
         )}
+          </motion.div>
+        </AnimatePresence>
 
         {/* Stepper controls */}
         <div className="flex items-center justify-between pt-4 border-t border-line">

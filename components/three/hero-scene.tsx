@@ -4,6 +4,41 @@ import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
+/**
+ * Theme palettes — muted, editorial tones that support the content
+ * instead of competing with it. Light mode reads steel-blue on white;
+ * dark mode reads luminous blue-gray on near-black.
+ */
+const PALETTES = {
+  light: {
+    nodes: "#4a6b96",
+    accentNodes: "#171717",
+    wireframe: "#8fa6c4",
+    ringA: "#0d74ce",
+    ringB: "#9aa8bc",
+    core: "#171717",
+    stars: "#93a7c4",
+    arcA: "#0d74ce",
+    arcB: "#a5b3c8",
+    pulse: "#171717",
+  },
+  dark: {
+    nodes: "#9db8dd",
+    accentNodes: "#ffffff",
+    wireframe: "#33415e",
+    ringA: "#47c2ff",
+    ringB: "#8195b5",
+    core: "#f5f5f6",
+    stars: "#c9d8f2",
+    arcA: "#47c2ff",
+    arcB: "#7286a5",
+    pulse: "#ffffff",
+  },
+} as const;
+
+export type ScenePalette = keyof typeof PALETTES;
+type Palette = (typeof PALETTES)[ScenePalette];
+
 /** Evenly distribute N points across a sphere (Fibonacci lattice). */
 function fibonacciSphere(count: number, radius: number) {
   const positions = new Float32Array(count * 3);
@@ -34,7 +69,7 @@ function starShell(count: number, inner: number, outer: number) {
   return positions;
 }
 
-function NetworkOrb({ detail }: { detail: "high" | "low" }) {
+function NetworkOrb({ detail, palette }: { detail: "high" | "low"; palette: Palette }) {
   const group = useRef<THREE.Group>(null);
   const pointer = useRef({ x: 0, y: 0 });
   const target = useRef({ x: 0, y: 0 });
@@ -77,7 +112,7 @@ function NetworkOrb({ detail }: { detail: "high" | "low" }) {
         </bufferGeometry>
         <pointsMaterial
           size={0.028}
-          color="#8fd6ff"
+          color={palette.nodes}
           sizeAttenuation
           transparent
           opacity={0.85}
@@ -92,7 +127,7 @@ function NetworkOrb({ detail }: { detail: "high" | "low" }) {
         </bufferGeometry>
         <pointsMaterial
           size={0.05}
-          color="#ff6a1a"
+          color={palette.accentNodes}
           sizeAttenuation
           transparent
           opacity={0.95}
@@ -100,32 +135,35 @@ function NetworkOrb({ detail }: { detail: "high" | "low" }) {
         />
       </points>
 
+      {/* Funding flows between nodes */}
+      <ConnectionArcs detail={detail} palette={palette} />
+
       {/* Equatorial wireframe to suggest a surface */}
       <mesh>
         <icosahedronGeometry args={[2, detail === "high" ? 2 : 1]} />
-        <meshBasicMaterial color="#2a3a5e" wireframe transparent opacity={0.14} depthWrite={false} />
+        <meshBasicMaterial color={palette.wireframe} wireframe transparent opacity={0.14} depthWrite={false} />
       </mesh>
 
       {/* Orbital rings */}
       <mesh rotation={[Math.PI / 2.6, 0.4, 0]}>
         <torusGeometry args={[2.7, 0.004, 6, 96]} />
-        <meshBasicMaterial color="#41c7ff" transparent opacity={0.4} depthWrite={false} />
+        <meshBasicMaterial color={palette.ringA} transparent opacity={0.4} depthWrite={false} />
       </mesh>
       <mesh rotation={[Math.PI / 1.9, -0.5, 0.3]}>
         <torusGeometry args={[3.1, 0.003, 6, 96]} />
-        <meshBasicMaterial color="#ff6a1a" transparent opacity={0.28} depthWrite={false} />
+        <meshBasicMaterial color={palette.ringB} transparent opacity={0.28} depthWrite={false} />
       </mesh>
 
       {/* Luminous core */}
       <mesh>
         <sphereGeometry args={[0.22, 16, 16]} />
-        <meshBasicMaterial color="#ffd9bf" transparent opacity={0.9} />
+        <meshBasicMaterial color={palette.core} transparent opacity={0.9} />
       </mesh>
     </group>
   );
 }
 
-function StarField({ count }: { count: number }) {
+function StarField({ count, color }: { count: number; color: string }) {
   const points = useRef<THREE.Points>(null);
   const positions = useMemo(() => starShell(count, 16, 40), [count]);
 
@@ -141,7 +179,7 @@ function StarField({ count }: { count: number }) {
       </bufferGeometry>
       <pointsMaterial
         size={0.055}
-        color="#c9d8f2"
+        color={color}
         sizeAttenuation
         transparent
         opacity={0.7}
@@ -151,14 +189,104 @@ function StarField({ count }: { count: number }) {
   );
 }
 
+/**
+ * Funding flows: raised arcs connecting network nodes, each pulsing on
+ * its own phase while a bright pulse travels backer → campaign along
+ * the curve. The visual thesis of the whole hero.
+ */
+function ConnectionArcs({ detail, palette }: { detail: "high" | "low"; palette: Palette }) {
+  const arcCount = detail === "high" ? 22 : 10;
+  const pulsePoints = useRef<THREE.Points>(null);
+
+  const { lines, curves, pulsePositions } = useMemo(() => {
+    const nodeField = fibonacciSphere(180, 2.01);
+    const nodeTotal = nodeField.length / 3;
+    const pickNode = () => {
+      const i = Math.floor(Math.random() * nodeTotal);
+      return new THREE.Vector3(nodeField[i * 3], nodeField[i * 3 + 1], nodeField[i * 3 + 2]);
+    };
+
+    const curves: THREE.QuadraticBezierCurve3[] = [];
+    const lines: THREE.Line[] = [];
+    for (let i = 0; i < arcCount; i++) {
+      const a = pickNode();
+      let b = pickNode();
+      let guard = 0;
+      while (a.distanceTo(b) < 1.4 && guard++ < 8) b = pickNode();
+
+      const mid = a.clone().add(b).multiplyScalar(0.5);
+      mid.normalize().multiplyScalar(2 + a.distanceTo(b) * 0.42);
+
+      const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+      const geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(48));
+      const material = new THREE.LineBasicMaterial({
+        color: i % 3 === 0 ? palette.arcA : palette.arcB,
+        transparent: true,
+        opacity: 0.2,
+        depthWrite: false,
+      });
+      lines.push(new THREE.Line(geometry, material));
+      curves.push(curve);
+    }
+
+    return { lines, curves, pulsePositions: new Float32Array(arcCount * 3) };
+  }, [arcCount, palette]);
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+
+    lines.forEach((line, i) => {
+      const material = line.material as THREE.LineBasicMaterial;
+      material.opacity = 0.08 + 0.42 * (0.5 + 0.5 * Math.sin(t * 0.9 + i * 0.7));
+    });
+
+    const geometry = pulsePoints.current?.geometry;
+    if (!geometry) return;
+    const attr = geometry.attributes.position as THREE.BufferAttribute;
+    const arr = attr.array as Float32Array;
+    for (let i = 0; i < curves.length; i++) {
+      const u = (t * 0.085 + i / curves.length) % 1;
+      const p = curves[i].getPoint(u);
+      arr[i * 3] = p.x;
+      arr[i * 3 + 1] = p.y;
+      arr[i * 3 + 2] = p.z;
+    }
+    attr.needsUpdate = true;
+  });
+
+  return (
+    <group>
+      {lines.map((line, i) => (
+        <primitive key={i} object={line} />
+      ))}
+      <points ref={pulsePoints}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[pulsePositions, 3]} />
+        </bufferGeometry>
+        <pointsMaterial
+          size={0.06}
+          color={palette.pulse}
+          sizeAttenuation
+          transparent
+          opacity={0.95}
+          depthWrite={false}
+        />
+      </points>
+    </group>
+  );
+}
+
 export default function HeroScene({
   detail = "high",
   active = true,
+  palette = "dark",
 }: {
   detail?: "high" | "low";
   /** When false the render loop stops entirely (hero offscreen or tab hidden). */
   active?: boolean;
+  palette?: ScenePalette;
 }) {
+  const colors = PALETTES[palette];
   return (
     <Canvas
       frameloop={active ? "always" : "never"}
@@ -166,8 +294,8 @@ export default function HeroScene({
       camera={{ position: [0, 0, 7.2], fov: 42 }}
       gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
     >
-      <NetworkOrb detail={detail} />
-      <StarField count={detail === "high" ? 900 : 420} />
+      <NetworkOrb detail={detail} palette={colors} />
+      <StarField count={detail === "high" ? 900 : 420} color={colors.stars} />
     </Canvas>
   );
 }

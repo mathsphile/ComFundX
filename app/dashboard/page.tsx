@@ -22,6 +22,7 @@ import { Modal } from "@/components/ui/modal";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Container } from "@/components/ui/container";
+import { CountUp } from "@/components/ui/count-up";
 import { formatXlm } from "@/lib/utils";
 
 export default function CreatorDashboardPage() {
@@ -116,10 +117,10 @@ export default function CreatorDashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Raised" value={`${formatXlm(totalRaised)} XLM`} icon={<TrendingUp className="w-4 h-4 text-accent" />} />
-        <StatCard label="Total Backers" value={totalBackers.toLocaleString("en-US")} icon={<Users className="w-4 h-4 text-network" />} />
-        <StatCard label="Page Views" value={formatXlm(totalViews)} icon={<Eye className="w-4 h-4 text-success" />} />
-        <StatCard label="Active Campaigns" value={String(campaigns.length)} icon={<Rocket className="w-4 h-4 text-warning" />} />
+        <StatCard label="Total Raised" value={totalRaised} suffix=" XLM" icon={<TrendingUp className="w-4 h-4 text-accent" />} />
+        <StatCard label="Total Backers" value={totalBackers} icon={<Users className="w-4 h-4 text-network" />} />
+        <StatCard label="Page Views" value={totalViews} icon={<Eye className="w-4 h-4 text-success" />} />
+        <StatCard label="Active Campaigns" value={campaigns.length} icon={<Rocket className="w-4 h-4 text-warning" />} />
       </div>
 
       {/* Campaigns table */}
@@ -225,14 +226,16 @@ export default function CreatorDashboardPage() {
   );
 }
 
-function StatCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+function StatCard({ label, value, suffix, icon }: { label: string; value: number; suffix?: string; icon: React.ReactNode }) {
   return (
     <Surface padded className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-[12px] text-fg-faint">{label}</span>
         {icon}
       </div>
-      <p className="font-display text-2xl font-semibold text-fg tabular">{value}</p>
+      <p className="font-display text-2xl font-semibold text-fg tabular">
+        <CountUp value={value} suffix={suffix} />
+      </p>
     </Surface>
   );
 }

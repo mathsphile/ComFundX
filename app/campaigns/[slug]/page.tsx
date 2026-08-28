@@ -16,20 +16,27 @@ import {
   Send,
   CheckCircle2,
   ArrowLeft,
+  ExternalLink,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { DonateModal } from "@/components/donate-modal";
+import { DonationTicker } from "@/components/donation-ticker";
+import { AmbientField } from "@/components/ambient-field";
 import { useWalletStore } from "@/lib/store/walletStore";
+import { STELLAR_CONFIG } from "@/lib/stellar/config";
 import { Tabs } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { CountUp } from "@/components/ui/count-up";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Container } from "@/components/ui/container";
-import { cn, formatXlm, daysUntil } from "@/lib/utils";
+import { DUR, EASE } from "@/lib/motion";
+import { cn, formatXlm, daysUntil, shortAddress } from "@/lib/utils";
 
 type TabKey = "story" | "milestones" | "updates" | "comments" | "rewards";
 
@@ -48,6 +55,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ slug:
       if (!res.ok) throw new Error("Campaign not found");
       return res.json();
     },
+    // Keep the funding panel and ticker feeling live
+    refetchInterval: 30_000,
   });
 
   const campaign = data?.campaign;
@@ -147,7 +156,12 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ slug:
   };
 
   return (
-    <Container className="py-10 space-y-10 max-w-6xl">
+    <Container className="relative isolate py-10 space-y-10 max-w-6xl">
+      {/* Ambient depth behind the header and funding panel */}
+      <div className="pointer-events-none absolute inset-x-0 -top-10 -z-10 h-[620px]">
+        <AmbientField className="h-full w-full" />
+      </div>
+
       {/* Breadcrumb + header */}
       <div className="space-y-4">
         <Link href="/campaigns" className="inline-flex items-center gap-1.5 text-[13px] text-fg-faint hover:text-fg transition-colors">
@@ -236,7 +250,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ slug:
             <div className="space-y-3">
               <div className="flex items-baseline justify-between">
                 <span className="font-display text-[30px] font-semibold text-fg tabular">
-                  {formatXlm(campaign.raisedAmount)} <span className="text-sm text-accent font-medium">XLM</span>
+                  <CountUp value={campaign.raisedAmount} /> <span className="text-sm text-accent font-medium">XLM</span>
                 </span>
                 <span className="text-[12px] font-semibold text-network tabular">{progressPercent}% funded</span>
               </div>
@@ -244,13 +258,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ slug:
               <p className="text-[12px] text-fg-faint">
                 Goal of <span className="text-fg-muted tabular">{formatXlm(campaign.fundingGoal)} XLM</span>
               </p>
+              {campaign.donations?.length > 0 && <DonationTicker donations={campaign.donations} />}
             </div>
 
             {/* Backers / time */}
             <div className="grid grid-cols-2 gap-4 py-4 border-y border-line">
               <div>
                 <p className="flex items-center gap-1.5 font-display text-xl font-semibold text-fg tabular">
-                  <Users className="w-4 h-4 text-network" /> {backers}
+                  <Users className="w-4 h-4 text-network" /> <CountUp value={backers} />
                 </p>
                 <p className="text-[11px] text-fg-faint mt-0.5">Total backers</p>
               </div>
@@ -287,6 +302,28 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ slug:
                 </Button>
               </div>
             </div>
+
+            {/* On-chain transparency */}
+            <div className="rounded-box border border-line bg-surface-2/40 p-4 space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-faint">On-chain escrow</p>
+              <p className="text-[12px] leading-relaxed text-fg-muted">
+                Funds are held by the Soroban contract until the goal is met or the deadline passes. Every
+                contribution is a public Stellar transaction.
+              </p>
+              <div className="flex items-center justify-between gap-2 rounded-[8px] border border-line bg-surface px-3 py-2">
+                <span className="truncate font-mono text-[11px] text-fg">
+                  {shortAddress(STELLAR_CONFIG.crowdfundContractId, 10, 8)}
+                </span>
+                <a
+                  href={`${STELLAR_CONFIG.explorerUrl}/contract/${STELLAR_CONFIG.crowdfundContractId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-network underline-offset-2 hover:underline"
+                >
+                  Explorer <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -306,6 +343,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ slug:
         />
 
         <div className="panel p-7 sm:p-8">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: DUR.fast, ease: EASE }}
+            >
           {activeTab === "story" && (
             <div className="max-w-none text-[14px] leading-[1.8] text-fg-muted whitespace-pre-line">
               {campaign.story}
@@ -411,6 +456,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ slug:
               )}
             </div>
           )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 

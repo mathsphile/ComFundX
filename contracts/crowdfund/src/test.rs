@@ -11,6 +11,7 @@ use soroban_sdk::{
 const NOW: u64 = 1_000_000;
 const GOAL: i128 = 1_000_000_000; // 100 XLM in stroops
 const DAY: u64 = 86_400;
+const YEAR: u64 = 365 * DAY;
 
 struct Ctx<'a> {
     env: Env,
@@ -33,7 +34,7 @@ fn setup() -> Ctx<'static> {
     let token = token::Client::new(&env, &token_address);
     let mint = StellarAssetClient::new(&env, &token_address);
     let client = CrowdfundClient::new(&env, &contract_id);
-    client.initialize(&token_address);
+    client.initialize(&Address::generate(&env), &token_address);
 
     Ctx {
         env,
@@ -53,14 +54,30 @@ fn set_time(ctx: &Ctx, timestamp: u64) {
 #[test]
 fn initialize_only_once() {
     let ctx = setup();
+    let admin = Address::generate(&ctx.env);
     let other = ctx
         .env
         .register_stellar_asset_contract_v2(Address::generate(&ctx.env))
         .address();
     assert_eq!(
-        ctx.client.try_initialize(&other),
+        ctx.client.try_initialize(&admin, &other),
         Err(Ok(Error::AlreadyInitialized))
     );
+}
+
+#[test]
+fn initialize_requires_admin_authorization() {
+    let env = Env::default();
+    env.ledger().with_mut(|l| l.timestamp = NOW);
+    let token_address = env
+        .register_stellar_asset_contract_v2(Address::generate(&env))
+        .address();
+    let contract_id = env.register(Crowdfund, ());
+    let client = CrowdfundClient::new(&env, &contract_id);
+
+    // no mock_all_auths: an unsigned initialize must be rejected
+    let admin = Address::generate(&env);
+    assert!(client.try_initialize(&admin, &token_address).is_err());
 }
 
 #[test]
@@ -94,6 +111,27 @@ fn create_campaign_validates_inputs() {
         ctx.client.try_create_campaign(&creator, &GOAL, &NOW),
         Err(Ok(Error::InvalidDeadline))
     );
+    assert_eq!(
+        ctx.client.try_create_campaign(&creator, &GOAL, &(NOW - 1)),
+        Err(Ok(Error::InvalidDeadline))
+    );
+}
+
+#[test]
+fn create_campaign_bounds_duration() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+
+    // 366 days out is beyond the maximum campaign duration
+    assert_eq!(
+        ctx.client
+            .try_create_campaign(&creator, &GOAL, &(NOW + YEAR + DAY)),
+        Err(Ok(Error::DeadlineTooFar))
+    );
+
+    // exactly the cap is accepted
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + YEAR));
+    assert_eq!(ctx.client.get_campaign(&id).unwrap().deadline, NOW + YEAR);
 }
 
 #[test]
@@ -102,7 +140,9 @@ fn create_campaign_assigns_sequential_ids_and_state() {
     let creator = Address::generate(&ctx.env);
 
     let id1 = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
-    let id2 = ctx.client.create_campaign(&creator, &(GOAL * 2), &(NOW + DAY));
+    let id2 = ctx
+        .client
+        .create_campaign(&creator, &(GOAL * 2), &(NOW + DAY));
     assert_eq!((id1, id2), (1, 2));
 
     let campaign = ctx.client.get_campaign(&id1).unwrap();
@@ -113,6 +153,19 @@ fn create_campaign_assigns_sequential_ids_and_state() {
     assert!(!campaign.withdrawn);
 
     assert_eq!(ctx.client.get_campaign(&999), None);
+}
+
+// ---------- TTL math ----------
+
+#[test]
+fn ledgers_until_handles_boundaries() {
+    assert_eq!(ledgers_until(100, 100), 0);
+    assert_eq!(ledgers_until(100, 99), 0); // target in the past
+    assert_eq!(ledgers_until(100, 104), 0); // less than one ledger
+    assert_eq!(ledgers_until(100, 105), 1);
+    assert_eq!(ledgers_until(0, YEAR), (YEAR / 5) as u32);
+    // overflow of the u32 window saturates instead of panicking
+    assert_eq!(ledgers_until(0, u64::MAX), u32::MAX);
 }
 
 // ---------- donate ----------
@@ -297,11 +350,31 @@ fn refund_rules() {
     );
 
     // non-donor has nothing to claim on a failed campaign
-    let id2 = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY * 2));
+    let id2 = ctx
+        .client
+        .create_campaign(&creator, &GOAL, &(NOW + DAY * 2));
     set_time(&ctx, NOW + DAY * 2 + 1);
     assert_eq!(
         ctx.client.try_claim_refund(&donor, &id2),
         Err(Ok(Error::NoDonation))
+    );
+}
+
+#[test]
+fn refund_blocked_after_withdrawal() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &GOAL);
+
+    ctx.client.donate(&donor, &id, &GOAL);
+    ctx.client.withdraw(&creator, &id);
+
+    set_time(&ctx, NOW + DAY + 1);
+    assert_eq!(
+        ctx.client.try_claim_refund(&donor, &id),
+        Err(Ok(Error::GoalReached))
     );
 }
 
@@ -339,9 +412,28 @@ fn mutating_calls_require_signature_authorization() {
         .address();
     let contract_id = env.register(Crowdfund, ());
     let client = CrowdfundClient::new(&env, &contract_id);
-    client.initialize(&token_address);
+
+    let admin = Address::generate(&env);
+    // no mocked auths: an unsigned initialize must be rejected
+    env.set_auths(&[]);
+    assert!(client.try_initialize(&admin, &token_address).is_err());
+
+    // build state with all auths mocked
+    env.mock_all_auths();
+    client.initialize(&admin, &token_address);
 
     let creator = Address::generate(&env);
-    // no mock_all_auths: require_auth must reject unsigned calls
-    assert!(client.try_create_campaign(&creator, &GOAL, &(NOW + DAY)).is_err());
+    let donor = Address::generate(&env);
+    let id = client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    token::StellarAssetClient::new(&env, &token_address).mint(&donor, &GOAL);
+    client.donate(&donor, &id, &GOAL);
+
+    // set_auths disables mocking: every mutating entrypoint must reject
+    env.set_auths(&[]);
+    assert!(client
+        .try_create_campaign(&creator, &GOAL, &(NOW + DAY))
+        .is_err());
+    assert!(client.try_donate(&donor, &id, &100).is_err());
+    assert!(client.try_withdraw(&creator, &id).is_err());
+    assert!(client.try_claim_refund(&donor, &id).is_err());
 }

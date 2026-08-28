@@ -71,7 +71,7 @@ async function main() {
   // Create Campaign 1: Soroban Pay Protocol
   const c1 = await prisma.campaign.create({
     data: {
-      onChainId: 1,
+      onChainId: 3,
       creatorId: creator1.id,
       title: "Soroban Pay: Next-Gen Sub-Second Micropayments Protocol",
       slug: "soroban-pay-protocol",
@@ -129,7 +129,7 @@ Existing blockchain payment gateways suffer from high latency and variable gas f
   // Create Campaign 2: NeuroStellar AI
   const c2 = await prisma.campaign.create({
     data: {
-      onChainId: 2,
+      onChainId: 4,
       creatorId: creator2.id,
       title: "NeuroStellar: Decentralized AI Inference Marketplace",
       slug: "neurostellar-ai-marketplace",
@@ -173,7 +173,7 @@ Our platform uses Soroban to meter tokenized execution per prompt, settling XLM 
   // Create Campaign 3: Lumina Learning
   const c3 = await prisma.campaign.create({
     data: {
-      onChainId: 3,
+      onChainId: 5,
       creatorId: creator3.id,
       title: "Lumina Learn: Blockchain Literacy Games for Kids",
       slug: "lumina-learn-gaming",
@@ -200,7 +200,7 @@ Lumina Learn combines captivating visual storybooks with Soroban testnet mini-ga
   // Create Campaign 4: Expired/Failed Campaign for Refund Demo
   const c4 = await prisma.campaign.create({
     data: {
-      onChainId: 4,
+      onChainId: 7,
       creatorId: creator1.id,
       title: "StellarVR: Decentralized Virtual Metaverse Hub",
       slug: "stellar-vr-metaverse",

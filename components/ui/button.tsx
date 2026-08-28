@@ -8,26 +8,31 @@ import { cn } from "@/lib/utils";
 type Variant = "primary" | "secondary" | "ghost" | "outline" | "danger" | "network";
 type Size = "sm" | "md" | "lg";
 
+/**
+ * Buttons follow design.md: 14px/500 labels, 8px radii, 40px control
+ * height. Primary is black in light mode and white in dark — the only
+ * brand voltage. No glows, no gradients.
+ */
 const base =
-  "inline-flex items-center justify-center gap-2 font-semibold select-none " +
+  "inline-flex items-center justify-center gap-2 font-medium select-none " +
   "transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 " +
-  "focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg " +
-  "disabled:opacity-50 disabled:pointer-events-none active:translate-y-px whitespace-nowrap";
+  "focus-visible:ring-fg/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg " +
+  "disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98] whitespace-nowrap";
 
 const variants: Record<Variant, string> = {
-  primary:
-    "bg-accent text-fg-on-accent hover:bg-accent-strong shadow-[0_8px_24px_-8px_rgba(255,106,26,0.5)]",
-  secondary: "bg-surface-2 text-fg border border-line-strong hover:bg-surface-3",
-  outline: "bg-transparent text-fg border border-line-strong hover:border-line-bright hover:bg-surface",
+  primary: "bg-accent text-fg-on-accent hover:bg-accent-strong",
+  secondary:
+    "bg-surface text-fg border border-line-strong hover:border-line-bright hover:bg-bg-soft",
+  outline: "bg-transparent text-fg border border-line-strong hover:border-line-bright",
   ghost: "bg-transparent text-fg-muted hover:text-fg hover:bg-surface-2",
-  network: "bg-network/12 text-network border border-network/30 hover:bg-network/20",
-  danger: "bg-danger/12 text-danger border border-danger/30 hover:bg-danger/20",
+  network: "bg-transparent text-network border border-network/30 hover:bg-network/8",
+  danger: "bg-danger/10 text-danger border border-danger/30 hover:bg-danger/15",
 };
 
 const sizes: Record<Size, string> = {
-  sm: "h-9 px-4 text-[13px] rounded-[10px]",
-  md: "h-11 px-5 text-sm rounded-[11px]",
-  lg: "h-13 px-7 text-[15px] rounded-[12px] min-h-[52px]",
+  sm: "h-9 px-4 text-[13px] rounded-lg",
+  md: "h-10 px-[18px] text-sm rounded-lg",
+  lg: "h-11 px-6 text-[15px] rounded-lg",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
