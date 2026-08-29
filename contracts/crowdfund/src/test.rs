@@ -3,9 +3,10 @@ extern crate std;
 
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
+    symbol_short,
+    testutils::{Address as _, Events, Ledger},
     token::{self, StellarAssetClient},
-    Address, Env,
+    vec, Address, Env, IntoVal,
 };
 
 const NOW: u64 = 1_000_000;
@@ -399,6 +400,84 @@ fn multiple_donors_are_each_refunded() {
     assert_eq!(ctx.token.balance(&donor_a), 250);
     assert_eq!(ctx.token.balance(&donor_b), 400);
     assert_eq!(ctx.token.balance(&ctx.contract_id), 0);
+}
+
+// ---------- events ----------
+
+fn last_contract_events(ctx: &Ctx) -> soroban_sdk::testutils::ContractEvents {
+    ctx.env.events().all().filter_by_contract(&ctx.contract_id)
+}
+
+#[test]
+fn lifecycle_events_are_emitted() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+
+    assert_eq!(
+        last_contract_events(&ctx),
+        vec![
+            &ctx.env,
+            (
+                ctx.contract_id.clone(),
+                (symbol_short!("created"), id).into_val(&ctx.env),
+                GOAL.into_val(&ctx.env)
+            )
+        ]
+    );
+
+    ctx.mint.mint(&donor, &GOAL);
+    ctx.client.donate(&donor, &id, &GOAL);
+    assert_eq!(
+        last_contract_events(&ctx),
+        vec![
+            &ctx.env,
+            (
+                ctx.contract_id.clone(),
+                (symbol_short!("donated"), id).into_val(&ctx.env),
+                GOAL.into_val(&ctx.env)
+            )
+        ]
+    );
+
+    ctx.client.withdraw(&creator, &id);
+    assert_eq!(
+        last_contract_events(&ctx),
+        vec![
+            &ctx.env,
+            (
+                ctx.contract_id.clone(),
+                (symbol_short!("withdraw"), id).into_val(&ctx.env),
+                GOAL.into_val(&ctx.env)
+            )
+        ]
+    );
+}
+
+#[test]
+fn refund_event_is_emitted() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &250);
+    ctx.client.donate(&donor, &id, &250);
+
+    set_time(&ctx, NOW + DAY + 1);
+    ctx.client.claim_refund(&donor, &id);
+
+    assert_eq!(
+        last_contract_events(&ctx),
+        vec![
+            &ctx.env,
+            (
+                ctx.contract_id.clone(),
+                (symbol_short!("refunded"), id).into_val(&ctx.env),
+                250_i128.into_val(&ctx.env)
+            )
+        ]
+    );
 }
 
 // ---------- authorization ----------
