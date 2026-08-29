@@ -1,0 +1,28 @@
+name: Feature request
+description: Propose an improvement for CrowdFundX
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem does this solve? Link an existing flow or page if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the change. Include contract implications if funds or escrow rules are involved.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This does not weaken escrow guarantees (goal-or-refund, creator-only withdrawal)
+          required: true
+        - label: Real data only — no fabricated campaigns, users, or statistics
+          required: true

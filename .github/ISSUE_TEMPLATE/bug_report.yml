@@ -1,0 +1,51 @@
+name: Bug report
+description: Something in CrowdFundX isn't working as expected
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the behavior you observed and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: The shortest path from a fresh session to the bug.
+      placeholder: |
+        1. Connect Freighter on Testnet
+        2. Open a campaign
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Wallet / auth
+        - Campaigns (browse/detail)
+        - Contribution flow
+        - Creator dashboard
+        - Supporter portal
+        - Soroban contract
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: chain-context
+    attributes:
+      label: On-chain context (if relevant)
+      description: Transaction hash, contract ID, campaign ID — links to Stellar Expert are ideal.
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, wallet extension version, OS.
+    validations:
+      required: true
