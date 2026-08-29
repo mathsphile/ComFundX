@@ -10,7 +10,12 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "contract:build": "cd contracts/crowdfund && stellar contract build --optimize",
-    "contract:test": "cd contracts/crowdfund && cargo test"
+    "contract:test": "cd contracts/crowdfund && cargo test",
+    "contract:fmt": "cd contracts/crowdfund && cargo fmt",
+    "contract:fmt:check": "cd contracts/crowdfund && cargo fmt --check",
+    "contract:clippy": "cd contracts/crowdfund && cargo clippy --all-targets --all-features -- -D warnings",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run contract:fmt:check && npm run contract:clippy && npm run contract:test && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@prisma/client": "^6.3.0",
