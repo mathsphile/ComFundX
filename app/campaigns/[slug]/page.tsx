@@ -324,6 +324,41 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ slug:
                 </a>
               </div>
             </div>
+
+            {/* Recent contributions — real on-chain records */}
+            {campaign.donations?.length > 0 && (
+              <div className="rounded-box border border-line bg-surface-2/40 p-4 space-y-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-fg-faint">
+                  Recent contributions
+                </p>
+                <ul className="space-y-2.5">
+                  {campaign.donations.slice(0, 5).map((d: any) => (
+                    <li key={d.id} className="flex items-center justify-between gap-2 text-[12px]">
+                      <div className="min-w-0">
+                        <p className="truncate font-mono text-fg">{shortAddress(d.contributorAddress, 6, 4)}</p>
+                        <p className="text-[11px] text-fg-faint">
+                          {new Date(d.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="font-semibold text-fg tabular">{formatXlm(d.amount)} XLM</span>
+                        {d.txHash && (
+                          <a
+                            href={`${STELLAR_CONFIG.explorerUrl}/tx/${d.txHash}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label="View contribution transaction on Stellar Expert"
+                            className="text-fg-faint transition-colors hover:text-network"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </div>
