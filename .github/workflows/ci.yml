@@ -18,6 +18,18 @@ jobs:
         with:
           targets: wasm32v1-none
 
+      - name: Check Formatting
+        run: |
+          rustup component add rustfmt
+          cd contracts/crowdfund
+          cargo fmt --check
+
+      - name: Lint with Clippy
+        run: |
+          rustup component add clippy
+          cd contracts/crowdfund
+          cargo clippy --all-targets --all-features -- -D warnings
+
       - name: Run Soroban Cargo Unit Tests
         run: |
           cd contracts/crowdfund
