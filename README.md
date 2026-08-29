@@ -62,6 +62,39 @@ The escrow contract ([`contracts/crowdfund`](contracts/crowdfund)) is the author
 - `get_campaign` / `get_donation` — read-only state
 - Storage entries are TTL-extended past each campaign's deadline plus a grace window so refunds remain claimable after expiry
 
+**Contract errors** (returned as `Error(Contract, #n)`)
+
+| # | Error | Meaning |
+| :-: | :--- | :--- |
+| 1 | `AlreadyInitialized` | `initialize` called more than once |
+| 2 | `NotInitialized` | token not configured yet |
+| 3 | `InvalidGoal` | goal ≤ 0 |
+| 4 | `InvalidDeadline` | deadline not in the future |
+| 5 | `InvalidAmount` | amount ≤ 0 |
+| 6 | `CampaignNotFound` | unknown campaign ID |
+| 7 | `DeadlinePassed` | contributions closed |
+| 8 | `NotCreator` | withdrawal attempted by non-creator |
+| 9 | `AlreadyWithdrawn` | withdrawal already executed |
+| 10 | `GoalNotReached` | withdrawal before the goal is met |
+| 11 | `CampaignStillActive` | refund attempted before the deadline |
+| 12 | `GoalReached` | refund attempted on a successful campaign |
+| 13 | `NoDonation` | nothing to refund for this contributor |
+| 14 | `DeadlineTooFar` | deadline more than 365 days out |
+
+**Developer commands**
+
+| Command | What it does |
+| :--- | :--- |
+| `npm run dev` | Start the frontend |
+| `npm run build` / `npm start` | Production build / serve |
+| `npm run lint` | ESLint (flat config) |
+| `npm run typecheck` | TypeScript project check |
+| `npm run db:push` / `npm run db:seed` | Prisma schema push / seed data |
+| `npm run contract:build` | Optimized WASM via the Stellar CLI |
+| `npm run contract:test` | Soroban unit tests |
+| `npm run contract:fmt` / `npm run contract:clippy` | Contract formatting / lint |
+| `npm run verify` | Every gate above in one pass |
+
 | Parameter | Value / Address | Status |
 | :--- | :--- | :-: |
 | **Network** | **Stellar Testnet** | 🟢 Live |
@@ -154,8 +187,8 @@ Also enforced in CI-equivalent local checks: `cargo fmt --check` and `cargo clip
 ## ⚙️ CI/CD Pipeline & GitHub Actions Setup
 
 Automated continuous integration is configured in [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
-- 🦀 **Smart Contract Job**: Compiles WASM and runs `cargo test` across all unit tests.
-- ⚡ **Frontend Job**: Runs Next.js 15 type checking, Prisma client generation, and `npm run build`.
+- 🦀 **Smart Contract Job**: `cargo fmt --check`, `cargo clippy -D warnings`, and `cargo test`.
+- ⚡ **Frontend Job**: ESLint, Next.js 15 type checking (via build), Prisma client generation, and `npm run build`.
 
 ## 📊 Analytics, RPC Health & Monitoring Setup
 
