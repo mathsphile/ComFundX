@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { HeartHandshake, RefreshCw, ExternalLink, Wallet } from "lucide-react";
 import { useWalletStore } from "@/lib/store/walletStore";
+import { STELLAR_CONFIG } from "@/lib/stellar/config";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -167,12 +168,16 @@ export default function SupporterPortalPage() {
                     </td>
                     <td className="py-4">
                       <a
-                        href={`https://stellar.expert/explorer/testnet/account/${publicKey}`}
+                        href={
+                          d.txHash
+                            ? `${STELLAR_CONFIG.explorerUrl}/tx/${d.txHash}`
+                            : `${STELLAR_CONFIG.explorerUrl}/account/${publicKey}`
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1.5 text-[12px] font-medium text-network hover:text-fg transition-colors"
                       >
-                        Stellar Expert <ExternalLink className="w-3 h-3" />
+                        {d.txHash ? "View tx" : "Account"} <ExternalLink className="w-3 h-3" />
                       </a>
                     </td>
                   </tr>
