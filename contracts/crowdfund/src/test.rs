@@ -480,6 +480,67 @@ fn refund_event_is_emitted() {
     );
 }
 
+// ---------- boundaries & exactness ----------
+
+#[test]
+fn donate_is_accepted_until_the_last_second() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &100);
+
+    // one second before the deadline is still valid
+    set_time(&ctx, NOW + DAY - 1);
+    ctx.client.donate(&donor, &id, &100);
+    assert_eq!(ctx.client.get_campaign(&id).unwrap().raised, 100);
+
+    // the deadline itself closes the campaign
+    set_time(&ctx, NOW + DAY);
+    assert_eq!(
+        ctx.client.try_donate(&donor, &id, &100),
+        Err(Ok(Error::DeadlinePassed))
+    );
+}
+
+#[test]
+fn withdraw_pays_exactly_the_raised_amount_when_overfunded() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &(GOAL * 3));
+
+    ctx.client.donate(&donor, &id, &(GOAL * 3));
+    ctx.client.withdraw(&creator, &id);
+
+    // overfunding pays out everything raised, nothing more
+    assert_eq!(ctx.token.balance(&creator), GOAL * 3);
+    assert_eq!(ctx.token.balance(&ctx.contract_id), 0);
+}
+
+#[test]
+fn refund_is_exact_across_multiple_contributions() {
+    let ctx = setup();
+    let creator = Address::generate(&ctx.env);
+    let donor = Address::generate(&ctx.env);
+    let id = ctx.client.create_campaign(&creator, &GOAL, &(NOW + DAY));
+    ctx.mint.mint(&donor, &1000);
+
+    ctx.client.donate(&donor, &id, &250);
+    ctx.client.donate(&donor, &id, &350);
+    ctx.client.donate(&donor, &id, &100);
+    assert_eq!(ctx.token.balance(&donor), 300);
+
+    set_time(&ctx, NOW + DAY + 1);
+    ctx.client.claim_refund(&donor, &id);
+
+    // the full accumulated contribution comes back, to the stroop
+    assert_eq!(ctx.token.balance(&donor), 1000);
+    assert_eq!(ctx.token.balance(&ctx.contract_id), 0);
+    assert_eq!(ctx.client.get_donation(&donor, &id), 0);
+}
+
 // ---------- authorization ----------
 
 #[test]
