@@ -106,7 +106,7 @@ App ↔ contract mapping: seeded campaigns map to on-chain escrows #3 (Soroban P
 
 ---
 
-## 🧪 Smart Contract Unit Test Output (18/18 Tests Passing)
+## 🧪 Smart Contract Unit Test Output (23/23 Tests Passing)
 
 Internal security review and test suite run (no external audit performed):
 
@@ -115,11 +115,12 @@ cd contracts/crowdfund && cargo test
 ```
 
 ```text
-running 18 tests
+running 23 tests
 test test::calls_before_initialize_fail ... ok
 test test::create_campaign_assigns_sequential_ids_and_state ... ok
 test test::create_campaign_bounds_duration ... ok
 test test::create_campaign_validates_inputs ... ok
+test test::donate_is_accepted_until_the_last_second ... ok
 test test::donate_moves_funds_into_escrow ... ok
 test test::donate_rejects_after_deadline ... ok
 test test::donate_rejects_invalid_input ... ok
@@ -127,16 +128,24 @@ test test::donate_rejects_withdrawn_campaign ... ok
 test test::initialize_only_once ... ok
 test test::initialize_requires_admin_authorization ... ok
 test test::ledgers_until_handles_boundaries ... ok
+test test::lifecycle_events_are_emitted ... ok
 test test::multiple_donors_are_each_refunded ... ok
 test test::mutating_calls_require_signature_authorization ... ok
 test test::refund_blocked_after_withdrawal ... ok
+test test::refund_event_is_emitted ... ok
+test test::refund_is_exact_across_multiple_contributions ... ok
 test test::refund_returns_full_contribution_after_failed_campaign ... ok
 test test::refund_rules ... ok
 test test::withdraw_enforces_rules ... ok
 test test::withdraw_pays_creator_once_goal_reached ... ok
+test test::withdraw_pays_exactly_the_raised_amount_when_overfunded ... ok
 
-test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
+
+Coverage includes authorization for every mutating entrypoint, deadline
+boundaries, overfunded payouts, multi-contribution refund exactness,
+and event emission for the full lifecycle.
 
 Also enforced in CI-equivalent local checks: `cargo fmt --check` and `cargo clippy --all-targets --all-features -- -D warnings` both pass.
 
