@@ -15,6 +15,15 @@ export async function POST(
       return NextResponse.json({ error: "Amount and wallet address required" }, { status: 400 });
     }
 
+    // A donation is only real once Stellar has confirmed the transfer.
+    // Refuse to index anything without a genuine transaction hash.
+    if (!txHash) {
+      return NextResponse.json(
+        { error: "A confirmed Stellar transaction hash is required to record a donation" },
+        { status: 400 }
+      );
+    }
+
     const campaign = await prisma.campaign.findUnique({
       where: { id },
     });
@@ -30,8 +39,6 @@ export async function POST(
     const session = await getSession();
     const contributorId = session?.userId || null;
 
-    const mockHash = txHash || `0x${Math.random().toString(16).substring(2)}${Date.now().toString(16)}`;
-
     // Create donation transaction record
     const donation = await prisma.donation.create({
       data: {
@@ -39,7 +46,7 @@ export async function POST(
         contributorId,
         contributorAddress,
         amount: Number(amount),
-        txHash: mockHash,
+        txHash,
         status: "CONFIRMED",
       },
     });

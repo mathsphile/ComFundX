@@ -161,20 +161,20 @@ export function DonateModal({ campaign, isOpen, onClose, onSuccess }: DonateModa
       try {
         signedXdr = await signTransactionXdr(xdr, publicKey);
       } catch {
-        console.warn("Wallet signing fallback for local dev");
+        signedXdr = null;
+      }
+      if (!signedXdr) {
+        throw new Error("The transaction was not signed. Confirm it in your wallet and try again.");
       }
 
       setStep("CONFIRMING");
 
       // Submit the signed transaction to Stellar and record the real hash.
-      let txHash: string | undefined;
-      if (signedXdr) {
-        const submission = await submitSignedTransaction(signedXdr);
-        if (submission.status !== "SUCCESS") {
-          throw new Error(`Donation transaction ${submission.status.toLowerCase()} on Stellar`);
-        }
-        txHash = submission.hash;
+      const submission = await submitSignedTransaction(signedXdr);
+      if (submission.status !== "SUCCESS") {
+        throw new Error(`Donation transaction ${submission.status.toLowerCase()} on Stellar`);
       }
+      const txHash = submission.hash;
 
       const res = await fetch(`/api/campaigns/${campaign.id}/donate`, {
         method: "POST",
