@@ -39,7 +39,16 @@ export const metadata: Metadata = {
     url: "https://crowdfundx.stellar.org",
     siteName: "CrowdFundX",
     type: "website",
+    images: [{ url: "/logo.png", width: 1254, height: 1254, alt: "CrowdFundX" }],
   },
+  twitter: {
+    card: "summary",
+    title: "CrowdFundX — Decentralized Crowdfunding on Stellar",
+    description: "Launch. Fund. Build. Secured by Soroban Smart Contracts.",
+    images: ["/logo.png"],
+  },
+  metadataBase: new URL("https://crowdfundx.stellar.org"),
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({
