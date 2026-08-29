@@ -1,0 +1,28 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Three.js minor releases frequently shift R3F-facing APIs; update deliberately.
+      - dependency-name: "three"
+        update-types: ["version-update:semver-minor"]
+
+  - package-ecosystem: "cargo"
+    directory: "/contracts/crowdfund"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Soroban SDK bumps can change host behavior; upgrade deliberately
+      # and re-run the full contract suite.
+      - dependency-name: "soroban-sdk"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
