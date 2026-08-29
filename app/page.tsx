@@ -451,8 +451,8 @@ export default async function HomePage() {
                 Ideas deserve a fair shot.
               </h2>
               <p className="text-[15px] leading-relaxed text-fg-muted max-w-2xl mx-auto">
-                A creator shouldn't need a platform's permission to get paid, and a backer shouldn't have
-                to trust a company with their money. FundX exists so the only things deciding a campaign's
+                A creator shouldn&apos;t need a platform&apos;s permission to get paid, and a backer shouldn&apos;t have
+                to trust a company with their money. FundX exists so the only things deciding a campaign&apos;s
                 outcome are the goal, the deadline, and the people who back it.
               </p>
             </div>

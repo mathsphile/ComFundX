@@ -130,7 +130,7 @@ export default function CreatorDashboardPage() {
         {isLoading ? (
           <p className="py-10 text-center text-sm text-fg-faint">Loading campaigns…</p>
         ) : campaigns.length === 0 ? (
-          <p className="py-10 text-center text-sm text-fg-faint">You haven't launched any campaigns yet.</p>
+          <p className="py-10 text-center text-sm text-fg-faint">You haven&apos;t launched any campaigns yet.</p>
         ) : (
           <div className="overflow-x-auto -mx-6 px-6">
             <table className="w-full text-left min-w-[640px]">

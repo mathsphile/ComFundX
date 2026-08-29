@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     const sort = searchParams.get("sort") || "featured";
     const status = searchParams.get("status");
 
-    let whereClause: any = {};
+    const whereClause: any = {};
 
     if (category && category !== "All") {
       whereClause.category = category;
