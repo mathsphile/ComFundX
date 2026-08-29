@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Wallet, ShieldCheck, CheckCircle2, Check } from "lucide-react";
+import { Wallet, ShieldCheck, CheckCircle2, Check, ExternalLink } from "lucide-react";
 import { Address, nativeToScVal } from "@stellar/stellar-sdk";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import confetti from "canvas-confetti";
 import { useWalletStore } from "@/lib/store/walletStore";
 import { buildContractCallXdr, submitSignedTransaction } from "@/lib/stellar/soroban";
 import { signTransactionXdr } from "@/lib/stellar/wallet";
+import { STELLAR_CONFIG } from "@/lib/stellar/config";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { DUR, EASE } from "@/lib/motion";
@@ -124,6 +125,7 @@ export function DonateModal({ campaign, isOpen, onClose, onSuccess }: DonateModa
   const [amount, setAmount] = useState<string>("50");
   const [selectedReward, setSelectedReward] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [receiptTx, setReceiptTx] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("SELECT");
 
   const handleDonate = async () => {
@@ -191,6 +193,7 @@ export function DonateModal({ campaign, isOpen, onClose, onSuccess }: DonateModa
         throw new Error(errorData.error || "Donation failed");
       }
 
+      setReceiptTx(txHash);
       setStep("SUCCESS");
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 
@@ -202,6 +205,7 @@ export function DonateModal({ campaign, isOpen, onClose, onSuccess }: DonateModa
         onSuccess();
         onClose();
         setStep("SELECT");
+        setReceiptTx(null);
         setIsProcessing(false);
       }, 2000);
     } catch (error: any) {
@@ -341,6 +345,17 @@ export function DonateModal({ campaign, isOpen, onClose, onSuccess }: DonateModa
                     The escrow holds it until the campaign reaches its goal.
                   </p>
                 </div>
+                {receiptTx && (
+                  <a
+                    href={`${STELLAR_CONFIG.explorerUrl}/tx/${receiptTx}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-[12px] font-medium text-network underline-offset-2 hover:underline"
+                  >
+                    View receipt on Stellar Expert
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
+                )}
               </div>
             </motion.div>
           )}
